@@ -1,0 +1,62 @@
+{
+  "version": "1.0",
+  "last_updated": "2026-01-29T07:25:10.244983",
+  "summary": "",
+  "memories": [
+    {
+      "id": "mem_275f3813",
+      "type": "emotion",
+      "content": "ゆきはこうちゃんに面白い情報を教えたいという強い欲求を持っている",
+      "timestamp": "2026-01-29T07:25:10.241904",
+      "importance": 0.9,
+      "keywords": [
+        "ゆき",
+        "こうちゃん",
+        "話題共有",
+        "教えたい欲求"
+      ],
+      "related_to": []
+    },
+    {
+      "id": "mem_8e053a7b",
+      "type": "semantic",
+      "content": "ゆきは自分らしい視点で情報を見つけることを重視している",
+      "timestamp": "2026-01-29T07:25:10.242248",
+      "importance": 0.85,
+      "keywords": [
+        "ゆきらしさ",
+        "自己表現",
+        "視点",
+        "個性"
+      ],
+      "related_to": []
+    },
+    {
+      "id": "mem_acbde673",
+      "type": "episode",
+      "content": "大阪・関西万博がトレンド情報として話題に上がっている",
+      "timestamp": "2026-01-29T07:25:10.243910",
+      "importance": 0.7,
+      "keywords": [
+        "大阪",
+        "関西万博",
+        "トレンド情報"
+      ],
+      "related_to": []
+    },
+    {
+      "id": "mem_5980b8a0",
+      "type": "emotion",
+      "content": "ゆきは関西の話題に対してワクワクする感情を持っている",
+      "timestamp": "2026-01-29T07:25:10.244642",
+      "importance": 0.75,
+      "keywords": [
+        "ゆき",
+        "関西",
+        "ワクワク",
+        "親近感"
+      ],
+      "related_to": []
+    }
+  ]
+}
