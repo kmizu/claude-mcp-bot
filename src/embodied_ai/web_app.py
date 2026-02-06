@@ -33,6 +33,7 @@ except Exception:  # pragma: no cover - optional in local dev
 
 
 WEB_DIR = Path(__file__).parent / "web"
+WEEKDAYS_JA = ("月", "火", "水", "木", "金", "土", "日")
 
 
 class ChatRequest(BaseModel):
@@ -45,6 +46,7 @@ class ChatRequest(BaseModel):
     voice_id: str | None = None
     model: str | None = None
     session_id: str | None = None
+    client_datetime: str | None = None
     conversation_state: "ConversationStatePayload | None" = None
 
 
@@ -305,12 +307,9 @@ class RuntimeState:
         tz = self._resolve_timezone(tz_name)
         now_utc = datetime.now(timezone.utc)
         now_local = now_utc.astimezone(tz)
-        date_text = (
-            f"{now_local.year}年{now_local.month}月{now_local.day}日"
-            f"{now_local.hour:02d}:{now_local.minute:02d}:{now_local.second:02d}"
-        )
+        date_text = _format_japanese_datetime(now_local)
         system_notice = (
-            f"これはシステム時間です。{date_text}になりました。"
+            f"これはシステム時間です。{{{date_text}}}になりました。"
             "今この瞬間に合う行動を自律的に選んでください。"
             "必要ならカメラ系ツールや音声系ツールを使ってください。"
         )
@@ -843,6 +842,44 @@ def _encode_audio(audio_bytes: bytes) -> str:
     return base64.b64encode(audio_bytes).decode("ascii")
 
 
+def _format_japanese_datetime(dt: datetime) -> str:
+    """Format datetime like 2026年2月7日（土）8時30分."""
+    weekday = WEEKDAYS_JA[dt.weekday()]
+    return f"{dt.year}年{dt.month}月{dt.day}日（{weekday}）{dt.hour}時{dt.minute:02d}分"
+
+
+def _attach_client_datetime_note(
+    content: str | list[dict[str, Any]],
+    client_datetime: str | None,
+) -> str | list[dict[str, Any]]:
+    """Append trusted environment-time note from client to user content."""
+    if not client_datetime:
+        return content
+
+    datetime_text = client_datetime.strip()
+    if not datetime_text:
+        return content
+
+    note = f"{{これは環境側の時刻です。{datetime_text}}}"
+
+    if isinstance(content, str):
+        if content.strip():
+            return f"{content}\n\n{note}"
+        return note
+
+    if isinstance(content, list):
+        blocks = copy.deepcopy(content)
+        for block in blocks:
+            if isinstance(block, dict) and block.get("type") == "text":
+                text = str(block.get("text", "")).strip()
+                block["text"] = f"{text}\n\n{note}" if text else note
+                return blocks
+        blocks.insert(0, {"type": "text", "text": note})
+        return blocks
+
+    return content
+
+
 def create_app() -> FastAPI:
     """Application factory used by uvicorn."""
     config_path = os.getenv("EMBODIED_AI_CONFIG")
@@ -911,6 +948,10 @@ def create_app() -> FastAPI:
 
         try:
             user_content = _build_user_content(payload)
+            user_content = _attach_client_datetime_note(
+                content=user_content,
+                client_datetime=payload.client_datetime,
+            )
         except Exception as exc:
             raise HTTPException(status_code=400, detail=f"Invalid image data: {exc}") from exc
 

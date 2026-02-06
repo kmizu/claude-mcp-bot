@@ -25,6 +25,7 @@ const SESSION_ID_STORAGE_KEY = "embodied_ai_session_id";
 const CONVERSATION_STATE_STORAGE_PREFIX = "embodied_ai_conversation_state_v1";
 const MAX_CAPTURE_EDGE = 1280;
 const JPEG_QUALITY = 0.82;
+const WEEKDAYS_JA = ["日", "月", "火", "水", "木", "金", "土"];
 const audioObjectUrls = new Set();
 
 let cameraStream = null;
@@ -118,6 +119,16 @@ function getCaptureDimensions(videoWidth, videoHeight) {
     width: Math.max(1, Math.round(width * scale)),
     height: Math.max(1, Math.round(height * scale)),
   };
+}
+
+function formatJapaneseDateTime(date = new Date()) {
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const weekday = WEEKDAYS_JA[date.getDay()] || "";
+  const hour = date.getHours();
+  const minute = String(date.getMinutes()).padStart(2, "0");
+  return `${year}年${month}月${day}日（${weekday}）${hour}時${minute}分`;
 }
 
 function appendMessage(role, text, imageDataUrl = null) {
@@ -288,7 +299,7 @@ async function runAutonomousTick() {
       persistConversationState(data.conversation_state);
     }
 
-    const timestamp = new Date(data.created_at).toLocaleTimeString();
+    const timestamp = formatJapaneseDateTime(new Date(data.created_at));
     const bubble = appendMessage("assistant", `[AUTO ${timestamp}] ${data.reply || "(empty response)"}`);
 
     if (data.audio_base64 && data.audio_mime_type) {
@@ -579,6 +590,7 @@ async function sendMessage(event) {
   event.preventDefault();
   const messageText = messageInput.value.trim();
   const imageDataUrl = capturedImageDataUrl || captureCurrentFrameDataUrl();
+  const clientDateTime = formatJapaneseDateTime(new Date());
 
   if (!messageText && !imageDataUrl) {
     return;
@@ -595,6 +607,7 @@ async function sendMessage(event) {
       speak: speakToggle.checked,
       model: modelSelect.value,
       session_id: sessionId,
+      client_datetime: clientDateTime,
     };
     if (!hasServerConversationStore && conversationState) {
       payload.conversation_state = conversationState;
