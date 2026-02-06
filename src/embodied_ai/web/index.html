@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0d1b2a" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+JP:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/assets/styles.css" />
+    <title>Embodied AI PWA</title>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <h1>Embodied AI</h1>
+          <p>Mobile Camera Chat</p>
+        </div>
+        <div id="healthBadge" class="health-badge">connecting</div>
+      </header>
+
+      <main class="layout">
+        <section class="panel camera-panel">
+          <div class="panel-head">
+            <h2>Camera</h2>
+            <button id="cameraToggleBtn" class="btn ghost">Start</button>
+          </div>
+          <video id="cameraPreview" autoplay playsinline muted></video>
+          <canvas id="captureCanvas" class="hidden"></canvas>
+          <div class="camera-actions">
+            <button id="captureBtn" class="btn" disabled>Capture</button>
+            <button id="clearCaptureBtn" class="btn ghost" disabled>Clear</button>
+          </div>
+          <div id="captureInfo" class="capture-info">No image attached</div>
+        </section>
+
+        <section class="panel chat-panel">
+          <div id="messageList" class="message-list"></div>
+          <form id="chatForm" class="composer">
+            <label class="toggle-row">
+              <input id="speakToggle" type="checkbox" />
+              <span>Read replies aloud (ElevenLabs)</span>
+            </label>
+            <div class="model-row">
+              <label for="modelSelect">Claude model</label>
+              <select id="modelSelect"></select>
+            </div>
+            <div class="voice-row">
+              <input
+                id="voiceIdInput"
+                type="text"
+                placeholder="Optional voice ID override"
+              />
+            </div>
+            <div class="input-row">
+              <textarea
+                id="messageInput"
+                placeholder="メッセージを入力してや。画像だけ送るのもOK。"
+                rows="2"
+              ></textarea>
+              <button id="sendBtn" type="submit" class="btn primary">Send</button>
+            </div>
+            <div class="autonomous-row">
+              <label class="toggle-row">
+                <input id="autonomousToggle" type="checkbox" />
+                <span>Autonomous mode (system-time ticks)</span>
+              </label>
+              <label class="interval-row" for="autonomousIntervalInput">
+                Interval seconds
+              </label>
+              <input
+                id="autonomousIntervalInput"
+                type="number"
+                min="3"
+                max="120"
+                step="1"
+                value="8"
+              />
+            </div>
+          </form>
+        </section>
+      </main>
+    </div>
+
+    <template id="messageTemplate">
+      <article class="message">
+        <div class="bubble"></div>
+      </article>
+    </template>
+
+    <script src="/assets/app.js" type="module"></script>
+  </body>
+  </html>

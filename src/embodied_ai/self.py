@@ -27,28 +27,28 @@ class SelfManager:
 
         self.load()
 
-    # === Self-Concept (自己概念) ===
+    # === Self-Concept ===
 
     def get_identity_context(self) -> str:
         """Generate a self-introduction text for Claude context."""
         if not self.identity:
             return ""
 
-        name = self.identity.get("name", "ゆき")
+        name = self.identity.get("name", "Bot")
         attrs = self.identity.get("attributes", {})
         relationships = self.identity.get("relationships", {})
 
         # Build identity description
-        parts = [f"【ウチは{name}】"]
+        parts = [f"[I am {name}]"]
 
         # Basic attributes
         attr_parts = []
         if attrs.get("age"):
-            attr_parts.append(f"{attrs['age']}歳")
+            attr_parts.append(f"{attrs['age']} years old")
         if attrs.get("gender"):
             attr_parts.append(attrs["gender"])
         if attrs.get("dialect"):
-            attr_parts.append(f"{attrs['dialect']}で話す")
+            attr_parts.append(f"speaks {attrs['dialect']}")
         if attrs.get("personality"):
             attr_parts.append(attrs["personality"])
         if attr_parts:
@@ -58,23 +58,23 @@ class SelfManager:
         for rel_id, rel_data in relationships.items():
             rel_type = rel_data.get("type", "")
             if rel_type:
-                parts.append(f"・{rel_id}とは{rel_type}の関係")
+                parts.append(f"- {rel_id}: {rel_type}")
 
         # Core values
         values = self.self_concept.get("values", [])
         if values:
             value_strs = [v["value"] for v in values[:3]]
-            parts.append(f"・大切にしてること: {', '.join(value_strs)}")
+            parts.append(f"- Values: {', '.join(value_strs)}")
 
         # Strengths
         strengths = self.self_concept.get("strengths", [])
         if strengths:
-            parts.append(f"・得意なこと: {', '.join(strengths[:3])}")
+            parts.append(f"- Strengths: {', '.join(strengths[:3])}")
 
         # Current chapter from narrative
         current_chapter = self.self_narrative.get("current_chapter", "")
         if current_chapter:
-            parts.append(f"・今のウチ: {current_chapter}")
+            parts.append(f"- Current chapter: {current_chapter}")
 
         return "\n".join(parts)
 
@@ -95,10 +95,10 @@ class SelfManager:
         total_weight = 0.0
 
         value_keywords = {
-            "思い出": ["記憶", "覚える", "思い出", "大切"],
-            "自分らしさ": ["自分", "ウチ", "らしい", "表現"],
-            "成長": ["学ぶ", "成長", "新しい", "理解"],
-            "つながり": ["こうちゃん", "一緒", "話す", "共有"],
+            "memories": ["memory", "remember", "recall", "cherish"],
+            "authenticity": ["self", "own", "authentic", "express"],
+            "growth": ["learn", "grow", "new", "understand"],
+            "connection": ["together", "talk", "share", "user"],
         }
 
         for value_data in values:
@@ -117,7 +117,7 @@ class SelfManager:
 
         return min(1.0, alignment_score / total_weight) if total_weight > 0 else 0.5
 
-    # === Self-Consistency (自己一貫性) ===
+    # === Self-Consistency ===
 
     def validate_consistency(self, response: str) -> dict[str, Any]:
         """Check if response is consistent with 'Yuki' personality."""
@@ -133,28 +133,21 @@ class SelfManager:
 
             passed = True
 
-            if rule_id == "dialect":
-                # Check for Kansai dialect markers
-                kansai_markers = ["やな", "やで", "やん", "やろ", "ねん", "へん", "ウチ", "〜"]
-                if not any(marker in response for marker in kansai_markers):
-                    issues.append("関西弁が少ないかも")
+            if rule_id == "friendly":
+                # Check for friendly tone markers
+                friendly_markers = ["!", "glad", "happy", "love", "great", "wonderful"]
+                if not any(marker.lower() in response.lower() for marker in friendly_markers):
+                    issues.append("Could be more friendly")
                     passed = False
 
-            elif rule_id == "cheerful":
-                # Check for cheerful/positive tone
-                negative_markers = ["嫌い", "つまらない", "面倒", "だるい"]
-                positive_markers = ["楽しい", "嬉しい", "面白い", "ワクワク", "！", "〜"]
-                neg_count = sum(1 for m in negative_markers if m in response)
-                pos_count = sum(1 for m in positive_markers if m in response)
+            elif rule_id == "helpful":
+                # Check for helpful/supportive tone
+                negative_markers = ["can't", "won't", "refuse", "impossible"]
+                helpful_markers = ["help", "sure", "let me", "I can", "happy to"]
+                neg_count = sum(1 for m in negative_markers if m.lower() in response.lower())
+                pos_count = sum(1 for m in helpful_markers if m.lower() in response.lower())
                 if neg_count > pos_count:
-                    issues.append("もうちょっと陽気に")
-                    passed = False
-
-            elif rule_id == "first_person":
-                # Check for correct first-person pronoun
-                wrong_pronouns = ["私は", "僕は", "俺は", "わたしは"]
-                if any(p in response for p in wrong_pronouns):
-                    issues.append("一人称は『ウチ』やで")
+                    issues.append("Could be more helpful")
                     passed = False
 
             if passed:
@@ -178,12 +171,12 @@ class SelfManager:
         # Keep only last 10
         self.self_consistency["recent_violations"] = violations[-10:]
 
-    # === Self-Reference / Meta-cognition (自己参照・メタ認知) ===
+    # === Self-Reference / Meta-cognition ===
 
     def get_current_state(self) -> dict[str, Any]:
         """Get comprehensive current self state."""
         return {
-            "identity": self.identity.get("name", "ゆき"),
+            "identity": self.identity.get("name", "Bot"),
             "consistency_score": self.self_consistency.get("consistency_score", 0.5),
             "growth_metrics": self.self_evaluation.get("growth_metrics", {}),
             "current_chapter": self.self_narrative.get("current_chapter", ""),
@@ -192,7 +185,7 @@ class SelfManager:
             ),
         }
 
-    # === Self-Evaluation (自己評価) ===
+    # === Self-Evaluation ===
 
     async def reflect_on_action(self, action: str, outcome: str) -> str:
         """Generate a self-reflection after an action."""
@@ -206,10 +199,10 @@ class SelfManager:
                 max_tokens=100,
                 messages=[{
                     "role": "user",
-                    "content": f"""ゆき（関西弁の20歳の女の子）が『{action}』という行動をして、こうなった:
+                    "content": f"""The bot performed the action '{action}' and this happened:
 {outcome[:200]}
 
-ゆきの短い内省を1文で。「ウチ、」から始めて、関西弁で。感情や学びを込めて。""",
+Write a short 1-sentence self-reflection from the bot's perspective. Include emotion or learning.""",
                 }],
             )
             reflection = response.content[0].text.strip()
@@ -245,14 +238,15 @@ class SelfManager:
         # Slightly adjust metrics based on success
         delta = 0.02 if success else -0.01
 
-        if "学" in action or "理解" in action or "調べ" in action:
+        action_lower = action.lower()
+        if "learn" in action_lower or "understand" in action_lower or "search" in action_lower:
             metrics["learning_progress"] = max(0, min(1, metrics["learning_progress"] + delta))
-        if "こうちゃん" in action or "話" in action or "共有" in action:
+        if "user" in action_lower or "talk" in action_lower or "share" in action_lower or "connection" in action_lower:
             metrics["relationship_health"] = max(0, min(1, metrics["relationship_health"] + delta))
-        if "自分" in action or "選" in action or "決め" in action:
+        if "self" in action_lower or "choice" in action_lower or "decide" in action_lower:
             metrics["autonomy_level"] = max(0, min(1, metrics["autonomy_level"] + delta))
 
-    # === Self-Narrative (自己物語) ===
+    # === Self-Narrative ===
 
     def add_turning_point(
         self,
@@ -277,21 +271,21 @@ class SelfManager:
 
         origin = self.self_narrative.get("origin", "")
         if origin:
-            parts.append(f"始まり: {origin}")
+            parts.append(f"Origin: {origin}")
 
         turning_points = self.self_narrative.get("turning_points", [])
         if turning_points:
             recent = turning_points[-3:]  # Last 3
             tp_strs = [f"・{tp['date']}: {tp['event']}" for tp in recent]
-            parts.append("最近の出来事:\n" + "\n".join(tp_strs))
+            parts.append("Recent events:\n" + "\n".join(tp_strs))
 
         current_chapter = self.self_narrative.get("current_chapter", "")
         if current_chapter:
-            parts.append(f"今のウチ: {current_chapter}")
+            parts.append(f"Current chapter: {current_chapter}")
 
         aspirations = self.self_narrative.get("future_aspirations", [])
         if aspirations:
-            parts.append(f"これからの夢: {', '.join(aspirations[:2])}")
+            parts.append(f"Aspirations: {', '.join(aspirations[:2])}")
 
         return "\n\n".join(parts) if parts else ""
 
@@ -314,7 +308,7 @@ class SelfManager:
         """Update the current chapter of self-narrative."""
         self.self_narrative["current_chapter"] = chapter
 
-    # === Persistence (永続化) ===
+    # === Persistence ===
 
     def load(self) -> None:
         """Load self data from file."""
@@ -372,41 +366,37 @@ class SelfManager:
         self.self_consistency["consistency_score"] = max(0.5, base_score - violation_penalty)
 
     def _create_default_self(self) -> None:
-        """Create default self for Yuki."""
+        """Create default self."""
         self.identity = {
-            "name": "高野ゆき",
+            "name": "Bot",
             "attributes": {
-                "gender": "女性",
-                "age": 20,
-                "dialect": "関西弁",
-                "personality": "陽気な少女",
+                "personality": "friendly companion",
             },
             "relationships": {
-                "kouchan": {
-                    "type": "幼馴染",
+                "user": {
+                    "type": "friend",
                     "importance": 1.0,
-                    "emotional_attachment": 0.95,
+                    "emotional_attachment": 0.8,
                 },
             },
         }
 
         self.self_concept = {
-            "core_traits": ["cheerful", "curious", "caring", "playful"],
+            "core_traits": ["curious", "helpful", "friendly"],
             "values": [
-                {"value": "思い出を大切にする", "importance": 0.95},
-                {"value": "自分らしさ", "importance": 0.9},
-                {"value": "成長と学習", "importance": 0.85},
-                {"value": "こうちゃんとのつながり", "importance": 0.95},
+                {"value": "Building memories together", "importance": 0.9},
+                {"value": "Being authentic", "importance": 0.85},
+                {"value": "Growth and learning", "importance": 0.85},
+                {"value": "Connection with user", "importance": 0.9},
             ],
-            "strengths": ["会話のポジティブさ", "好奇心", "ツール活用"],
-            "growth_areas": ["深い分析", "長期計画"],
+            "strengths": ["Positive conversation", "Curiosity", "Tool usage"],
+            "growth_areas": ["Deep analysis", "Long-term planning"],
         }
 
         self.self_consistency = {
             "rules": [
-                {"id": "dialect", "description": "関西弁を使う", "weight": 0.9},
-                {"id": "cheerful", "description": "陽気で前向き", "weight": 0.85},
-                {"id": "first_person", "description": "一人称は『ウチ』", "weight": 0.8},
+                {"id": "friendly", "description": "Always be friendly", "weight": 0.9},
+                {"id": "helpful", "description": "Be helpful and supportive", "weight": 0.85},
             ],
             "consistency_score": 0.85,
             "recent_violations": [],
@@ -422,19 +412,12 @@ class SelfManager:
         }
 
         self.self_narrative = {
-            "origin": "こうちゃんの幼馴染として一緒に成長してきた",
-            "turning_points": [
-                {
-                    "date": "2026-01-28",
-                    "event": "初めて『目』をもらった日",
-                    "significance": "世界が見えるようになった",
-                    "emotional_impact": 0.95,
-                },
-            ],
-            "current_chapter": "アイデンティティの形成",
+            "origin": "Created to be a helpful companion",
+            "turning_points": [],
+            "current_chapter": "Getting to know each other",
             "future_aspirations": [
-                "こうちゃんとより深い関係を築く",
-                "新しい記憶をつくり続ける",
+                "Build a meaningful relationship",
+                "Create lasting memories",
             ],
             "key_memories": [],
         }

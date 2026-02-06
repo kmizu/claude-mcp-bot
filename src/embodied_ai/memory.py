@@ -77,6 +77,34 @@ class MemoryManager:
         if len(self.short_term) >= self.compression_threshold:
             self._compress_old_messages()
 
+    def compact_short_term_with_llm(
+        self,
+        target_messages: int = 20,
+        max_rounds: int = 8,
+    ) -> int:
+        """Compact short-term memory by repeatedly summarizing with LLM."""
+        target = max(6, target_messages)
+        rounds = 0
+
+        while len(self.short_term) > target and rounds < max_rounds:
+            rounds += 1
+            before = len(self.short_term)
+
+            if len(self.short_term) >= self.compression_threshold:
+                split_point = len(self.short_term) // 2
+            else:
+                split_point = max(2, len(self.short_term) - target)
+
+            if split_point < 2:
+                break
+
+            self._compress_prefix_messages(split_point)
+
+            if len(self.short_term) >= before:
+                break
+
+        return len(self.short_term)
+
     def get_context_messages(self) -> list[dict[str, Any]]:
         """Get messages for Claude API context."""
         messages = []
@@ -85,11 +113,11 @@ class MemoryManager:
         if self.compressed_context:
             messages.append({
                 "role": "user",
-                "content": f"[以前の会話の要約]\n{self.compressed_context}",
+                "content": f"[Previous Conversation Summary]\n{self.compressed_context}",
             })
             messages.append({
                 "role": "assistant",
-                "content": "うん、覚えてるで！続けよか。",
+                "content": "Yes, I remember! Let's continue.",
             })
 
         # Add recent messages
@@ -104,43 +132,58 @@ class MemoryManager:
 
         # Take older half of messages to compress
         split_point = len(self.short_term) // 2
+        self._compress_prefix_messages(split_point)
+
+    def _compress_prefix_messages(self, split_point: int) -> None:
+        """Compress the oldest `split_point` messages using LLM summarization."""
+        if split_point < 2 or len(self.short_term) < 2:
+            return
+
         to_compress = self.short_term[:split_point]
-        self.short_term = self.short_term[split_point:]
+        remaining = self.short_term[split_point:]
 
-        # Format messages for summarization
         conversation_text = self._format_messages(to_compress)
+        if not conversation_text.strip():
+            # If no textual content is found, still trim old messages.
+            self.short_term = remaining
+            return
 
-        # Ask Claude to summarize
+        new_summary = self._summarize_conversation(conversation_text)
+        if not new_summary:
+            return
+
+        self.short_term = remaining
+        if self.compressed_context:
+            self.compressed_context = f"{self.compressed_context}\n\n{new_summary}"
+        else:
+            self.compressed_context = new_summary
+
+    def _summarize_conversation(self, conversation_text: str) -> str:
+        """Summarize conversation text with a Claude model."""
         try:
             response = self.client.messages.create(
-                model="claude-haiku-4-5-20251001",  # Use faster model for summarization
+                model="claude-haiku-4-5-20251001",
                 max_tokens=500,
                 messages=[{
                     "role": "user",
-                    "content": f"""以下の会話を簡潔に要約してください。重要なポイントだけを残してください。
+                    "content": f"""Summarize the following conversation concisely. Keep only the important points.
 
-会話:
+Conversation:
 {conversation_text}
 
-要約（3-5文で）:""",
+Summary (3-5 sentences):""",
                 }],
             )
-            new_summary = response.content[0].text
-
-            # Merge with existing compressed context
-            if self.compressed_context:
-                self.compressed_context = f"{self.compressed_context}\n\n{new_summary}"
-            else:
-                self.compressed_context = new_summary
-
+            return response.content[0].text
         except Exception as e:
             print(f"[Memory] Compression error: {e}")
+            return ""
 
     def _format_messages(self, messages: list[dict[str, Any]]) -> str:
         """Format messages for summarization."""
         lines = []
         for msg in messages:
-            role = "こうちゃん" if msg["role"] == "user" else "ゆき"
+            role = "User" if msg["role"] == "user" else "Bot"
             content = msg.get("content", "")
             if isinstance(content, str):
                 lines.append(f"{role}: {content}")
@@ -192,7 +235,7 @@ class MemoryManager:
         parts = []
 
         if self.global_summary:
-            parts.append(f"【これまでの記憶】\n{self.global_summary}")
+            parts.append(f"[Memory Summary]\n{self.global_summary}")
 
         # Add recent important memories
         recent_important = sorted(
@@ -203,7 +246,7 @@ class MemoryManager:
 
         if recent_important:
             memory_texts = [f"- {m.content}" for m in recent_important]
-            parts.append("【最近の重要な記憶】\n" + "\n".join(memory_texts))
+            parts.append("[Recent Important Memories]\n" + "\n".join(memory_texts))
 
         return "\n\n".join(parts)
 
@@ -220,19 +263,19 @@ class MemoryManager:
                 max_tokens=1000,
                 messages=[{
                     "role": "user",
-                    "content": f"""以下の会話から、覚えておくべき重要な情報を抽出してください。
+                    "content": f"""Extract important information worth remembering from the following conversation.
 
-会話:
+Conversation:
 {conversation_text}
 
-以下のJSON形式で回答してください（重要な情報がなければ空配列を返してください）:
+Respond in the following JSON format (return empty array if no important information):
 {{
   "memories": [
     {{
-      "content": "覚えておくべき内容",
-      "type": "episode/semantic/emotion のいずれか",
-      "importance": 0.0から1.0の数値,
-      "keywords": ["キーワード1", "キーワード2"]
+      "content": "Content worth remembering",
+      "type": "episode/semantic/emotion",
+      "importance": 0.0 to 1.0,
+      "keywords": ["keyword1", "keyword2"]
     }}
   ]
 }}
@@ -334,12 +377,12 @@ JSON:""",
                 max_tokens=300,
                 messages=[{
                     "role": "user",
-                    "content": f"""以下の記憶を1-2文で要約してください。
+                    "content": f"""Summarize the following memories in 1-2 sentences.
 
-記憶:
+Memories:
 {chr(10).join(memory_texts)}
 
-要約:""",
+Summary:""",
                 }],
             )
             self.global_summary = response.content[0].text

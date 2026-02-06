@@ -1,0 +1,23 @@
+{
+  "region": "ap-northeast-1",
+  "function_name": "embodied-ai-pwa",
+  "role_arn": "arn:aws:iam::123456789012:role/embodied-ai-lambda-role",
+  "memory_size": 1024,
+  "timeout": 30,
+  "ephemeral_storage_mb": 1024,
+  "architectures": ["x86_64"],
+  "runtime": "python3.12",
+  "handler": "embodied_ai.lambda_handler.handler",
+  "environment": {
+    "EMBODIED_AI_CONFIG": "/var/task/config.lambda.json",
+    "ANTHROPIC_API_KEY": "replace-me",
+    "ELEVENLABS_API_KEY": "replace-me",
+    "ELEVENLABS_VOICE_ID": "replace-me"
+  },
+  "function_url_auth_type": "NONE",
+  "cors": {
+    "AllowOrigins": ["*"],
+    "AllowMethods": ["*"],
+    "AllowHeaders": ["*"]
+  }
+}

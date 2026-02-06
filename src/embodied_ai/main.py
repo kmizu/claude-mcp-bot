@@ -1,34 +1,15 @@
-"""Main entry point for Claude MCP Bot."""
+"""Main entry point for Embodied AI."""
 
 import asyncio
-import json
+import os
 import sys
-from pathlib import Path
 
 from dotenv import load_dotenv
 
 from .bot import Bot
 from .claude_client import ClaudeClient
+from .config_loader import load_config, resolve_bot_paths, resolve_system_prompt
 from .mcp_client import MCPClient
-
-
-def load_config(config_path: str | None = None) -> tuple[dict, str]:
-    """Load configuration from JSON file. Returns (config, config_path)."""
-    if config_path is None:
-        # Look for config.json in current directory or package directory
-        candidates = [
-            Path.cwd() / "config.json",
-            Path(__file__).parent.parent.parent.parent / "config.json",
-        ]
-        for candidate in candidates:
-            if candidate.exists():
-                config_path = str(candidate)
-                break
-        else:
-            raise FileNotFoundError("config.json not found")
-
-    with open(config_path) as f:
-        return json.load(f), config_path
 
 
 async def async_main(autonomous: bool = False, config_file: str | None = None) -> None:
@@ -39,9 +20,10 @@ async def async_main(autonomous: bool = False, config_file: str | None = None) -
     # Load config
     try:
         config, config_path = load_config(config_file)
-    except FileNotFoundError as e:
+        system_prompt = resolve_system_prompt(config, config_path)
+    except (FileNotFoundError, ValueError) as e:
         print(f"Error: {e}")
-        print("Please create a config.json file with MCP server configurations.")
+        print("Please create a valid config.json and Claude prompt file.")
         sys.exit(1)
 
     # Initialize clients
@@ -49,10 +31,7 @@ async def async_main(autonomous: bool = False, config_file: str | None = None) -
     claude_config = config.get("claude", {})
     claude_client = ClaudeClient(
         model=claude_config.get("model", "claude-sonnet-4-20250514"),
-        system_prompt=claude_config.get(
-            "system_prompt",
-            "You are a helpful assistant with access to various tools."
-        ),
+        system_prompt=system_prompt,
     )
 
     # Connect to MCP servers
@@ -61,22 +40,7 @@ async def async_main(autonomous: bool = False, config_file: str | None = None) -
 
     # Create bot
     bot_config = config.get("bot", {})
-    config_dir = Path(config_path).parent if config_path else Path.cwd()
-
-    # Determine memory file path (relative to config file or absolute)
-    memory_path = bot_config.get("memory_path", "memories.json")
-    if not Path(memory_path).is_absolute():
-        memory_path = str(config_dir / memory_path)
-
-    # Determine desire file path (relative to config file or absolute)
-    desire_path = bot_config.get("desire_path", "desires.json")
-    if not Path(desire_path).is_absolute():
-        desire_path = str(config_dir / desire_path)
-
-    # Determine self file path (relative to config file or absolute)
-    self_path = bot_config.get("self_path", "self.json")
-    if not Path(self_path).is_absolute():
-        self_path = str(config_dir / self_path)
+    memory_path, desire_path, self_path = resolve_bot_paths(config, config_path)
 
     bot = Bot(
         mcp_client=mcp_client,
@@ -89,7 +53,7 @@ async def async_main(autonomous: bool = False, config_file: str | None = None) -
     await bot.initialize()
 
     print("\n" + "=" * 50)
-    print("Claude MCP Bot started!")
+    print("Embodied AI started!")
     print("Type your message and press Enter.")
     print("Type 'quit' or 'exit' to stop.")
     if autonomous:
@@ -127,7 +91,7 @@ async def async_main(autonomous: bool = False, config_file: str | None = None) -
             except EOFError:
                 break
             except UnicodeDecodeError:
-                print("\n[入力エラー] 文字エンコーディングの問題が発生しました。もう一度入力してください。\n")
+                print("\n[Input Error] Character encoding issue. Please try again.\n")
                 continue
 
             if user_input.lower() in ("quit", "exit", "q"):
@@ -158,11 +122,40 @@ async def async_main(autonomous: bool = False, config_file: str | None = None) -
         print("Goodbye!")
 
 
+def run_web_server(
+    config_file: str | None = None,
+    host: str | None = None,
+    port: int | None = None,
+) -> None:
+    """Run FastAPI web server for the PWA frontend."""
+    from .web_app import create_app
+
+    import uvicorn
+
+    try:
+        config, config_path = load_config(config_file)
+        resolve_system_prompt(config, config_path)
+    except (FileNotFoundError, ValueError) as e:
+        print(f"Error: {e}")
+        print("Please create a valid config.json and Claude prompt file.")
+        sys.exit(1)
+
+    web_config = config.get("web", {})
+    resolved_host = host or web_config.get("host", "0.0.0.0")
+    resolved_port = port if port is not None else int(web_config.get("port", 8000))
+
+    if config_file:
+        os.environ["EMBODIED_AI_CONFIG"] = config_file
+
+    app = create_app()
+    uvicorn.run(app, host=resolved_host, port=resolved_port)
+
+
 def main() -> None:
     """Main entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Claude MCP Bot")
+    parser = argparse.ArgumentParser(description="Embodied AI")
     parser.add_argument(
         "--autonomous", "-a",
         action="store_true",
@@ -173,7 +166,28 @@ def main() -> None:
         type=str,
         help="Path to config.json file",
     )
+    parser.add_argument(
+        "--web",
+        action="store_true",
+        help="Run web server with PWA frontend",
+    )
+    parser.add_argument(
+        "--host",
+        type=str,
+        default=None,
+        help="Web server host (used with --web)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        help="Web server port (used with --web)",
+    )
     args = parser.parse_args()
+
+    if args.web:
+        run_web_server(config_file=args.config, host=args.host, port=args.port)
+        return
 
     asyncio.run(async_main(autonomous=args.autonomous, config_file=args.config))
 

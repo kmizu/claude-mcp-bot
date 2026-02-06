@@ -1,0 +1,370 @@
+:root {
+  --bg: #09111f;
+  --bg-elevated: #12223b;
+  --surface: rgba(17, 36, 64, 0.78);
+  --surface-alt: rgba(14, 31, 56, 0.95);
+  --text: #f4f7fb;
+  --muted: #b5c1d6;
+  --accent: #52c7b8;
+  --accent-strong: #2fae9f;
+  --danger: #ff7373;
+  --ring: rgba(82, 199, 184, 0.5);
+  --shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  font-family: "Noto Sans JP", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 20% 10%, rgba(82, 199, 184, 0.22), transparent 35%),
+    radial-gradient(circle at 80% 0%, rgba(85, 168, 255, 0.28), transparent 40%),
+    linear-gradient(165deg, var(--bg) 0%, #040910 100%);
+}
+
+.app-shell {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 16px;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: var(--shadow);
+}
+
+.brand h1 {
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  letter-spacing: 0.02em;
+  font-size: clamp(1.1rem, 3vw, 1.55rem);
+}
+
+.brand p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.health-badge {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 6px 11px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.health-badge.ready {
+  color: #d7fff9;
+  border-color: rgba(82, 199, 184, 0.6);
+  box-shadow: 0 0 0 2px rgba(82, 199, 184, 0.18);
+}
+
+.layout {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 1fr;
+  flex: 1;
+}
+
+.panel {
+  border-radius: 18px;
+  background: var(--surface-alt);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: var(--shadow);
+  padding: 14px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.panel-head h2 {
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1rem;
+}
+
+#cameraPreview {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 14px;
+  object-fit: cover;
+  background: #030609;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.camera-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+}
+
+.capture-info {
+  margin-top: 10px;
+  border-radius: 12px;
+  padding: 10px;
+  min-height: 44px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.85rem;
+}
+
+.capture-info img {
+  width: 100%;
+  max-height: 190px;
+  object-fit: cover;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.message-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: min(58dvh, 720px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.message {
+  display: flex;
+}
+
+.message.user {
+  justify-content: flex-end;
+}
+
+.message.assistant {
+  justify-content: flex-start;
+}
+
+.bubble {
+  border-radius: 15px;
+  padding: 10px 12px;
+  max-width: min(92%, 620px);
+  line-height: 1.6;
+  font-size: 0.95rem;
+  white-space: pre-wrap;
+}
+
+.message.user .bubble {
+  background: linear-gradient(140deg, #279586, #3abcae);
+  color: #051212;
+  font-weight: 600;
+}
+
+.message.assistant .bubble {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.message img {
+  margin-top: 8px;
+  width: 100%;
+  max-height: 200px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.tts-wrap {
+  margin-top: 8px;
+}
+
+.tts-audio {
+  width: 100%;
+  max-width: 360px;
+  min-height: 32px;
+}
+
+.tts-note {
+  margin-top: 6px;
+  color: #ffd38f;
+  font-size: 0.78rem;
+}
+
+.composer {
+  margin-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 12px;
+}
+
+.toggle-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.voice-row {
+  margin-top: 8px;
+}
+
+.model-row {
+  margin-top: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.model-row label {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.model-row select {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--text);
+  padding: 9px 10px;
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.model-row select:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.voice-row input {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--text);
+  padding: 9px 10px;
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.voice-row input:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.autonomous-row {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.12);
+  display: grid;
+  gap: 7px;
+}
+
+.interval-row {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.autonomous-row input[type="number"] {
+  width: 120px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--text);
+  padding: 7px 9px;
+  font: inherit;
+}
+
+.autonomous-row input[type="number"]:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.input-row {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+}
+
+textarea {
+  flex: 1;
+  min-height: 56px;
+  max-height: 150px;
+  resize: vertical;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--text);
+  padding: 10px 11px;
+  font: inherit;
+}
+
+textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.btn {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 11px;
+  padding: 9px 12px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  font: 600 0.9rem "Space Grotesk", sans-serif;
+}
+
+.btn.primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  color: #062520;
+  border-color: transparent;
+}
+
+.btn.ghost {
+  background: transparent;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.hidden {
+  display: none;
+}
+
+.hint {
+  margin-top: 8px;
+  color: #ffd38f;
+  font-size: 0.8rem;
+}
+
+@media (min-width: 980px) {
+  .layout {
+    grid-template-columns: minmax(320px, 0.9fr) minmax(480px, 1.1fr);
+  }
+
+  .chat-panel {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .message-list {
+    flex: 1;
+    max-height: none;
+    min-height: 430px;
+  }
+}

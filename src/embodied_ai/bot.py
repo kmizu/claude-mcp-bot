@@ -48,15 +48,21 @@ class Bot:
         self.tools = await self.mcp.list_all_tools()
         print(f"Loaded {len(self.tools)} tools: {[t['name'] for t in self.tools]}")
 
-    async def process_message(self, user_input: str) -> str:
-        """Process a user message and return the response."""
-        # Add user message to memory
+    async def process_message(self, user_input: str, model: str | None = None) -> str:
+        """Process a plain-text user message and return the response."""
+        return await self.process_user_content(user_input, model=model)
+
+    async def process_user_content(
+        self,
+        content: str | list[dict[str, Any]],
+        model: str | None = None,
+    ) -> str:
+        """Process user content (text or Claude content blocks) and respond."""
         self.memory.add_message({
             "role": "user",
-            "content": user_input,
+            "content": content,
         })
-
-        return await self._get_response()
+        return await self._get_response(model=model)
 
     def _clean_tool_messages(self, messages: list[dict]) -> list[dict]:
         """Remove orphaned tool_result messages that don't have matching tool_use."""
@@ -109,7 +115,7 @@ class Bot:
         # Add as internal thought with desire info
         self.memory.add_message({
             "role": "user",
-            "content": f"[内なる声・{desire.name}] {prompt}",
+            "content": f"[Inner Voice - {desire.name}] {prompt}",
         })
 
         response = await self._get_response()
@@ -125,7 +131,7 @@ class Bot:
                 outcome=response[:200] if response else "",
             )
             if reflection:
-                print(f"  [ゆきの思い] {reflection}")
+                print(f"  [Reflection] {reflection}")
                 # Record as successful action
                 self.self_manager.record_action_evaluation(desire.name, success=True)
         except Exception:
@@ -133,7 +139,7 @@ class Bot:
 
         return response
 
-    async def _get_response(self) -> str:
+    async def _get_response(self, model: str | None = None) -> str:
         """Get response from Claude, handling tool calls."""
         # Get context with memory (includes compressed history + recent messages)
         context_messages = self.memory.get_context_messages()
@@ -156,16 +162,16 @@ class Bot:
             self_context = self.self_manager.get_identity_context()
             if self_context:
                 context_prefix.extend([
-                    {"role": "user", "content": f"[ゆきの自我]\n{self_context}"},
-                    {"role": "assistant", "content": "うん、ウチはウチやで！"},
+                    {"role": "user", "content": f"[Identity]\n{self_context}"},
+                    {"role": "assistant", "content": "Yes, that's me!"},
                 ])
 
             # Add long-term memory context if available
             memory_context = self.memory.get_memory_context()
             if memory_context:
                 context_prefix.extend([
-                    {"role": "user", "content": f"[長期記憶]\n{memory_context}"},
-                    {"role": "assistant", "content": "覚えてるで！"},
+                    {"role": "user", "content": f"[Long-term Memory]\n{memory_context}"},
+                    {"role": "assistant", "content": "I remember!"},
                 ])
 
             # Prepend context to messages
@@ -175,6 +181,7 @@ class Bot:
         response = self.claude.chat(
             messages=context_messages,
             tools=self.tools if self.tools else None,
+            model=model,
         )
 
         # Process response
@@ -222,6 +229,7 @@ class Bot:
                 follow_up = self.claude.chat(
                     messages=self.memory.get_context_messages(),
                     tools=self.tools if self.tools else None,
+                    model=model,
                 )
 
                 for fc in follow_up.content:
@@ -250,9 +258,9 @@ class Bot:
                 try:
                     response = await self.autonomous_action()
                     if response:
-                        print(f"\n[ゆき]\n{response}\n> ", end="", flush=True)
+                        print(f"\n[Bot]\n{response}\n> ", end="", flush=True)
                 except Exception as e:
-                    print(f"\n[ゆき] エラー: {e}\n> ", end="", flush=True)
+                    print(f"\n[Bot] Error: {e}\n> ", end="", flush=True)
 
     def stop(self) -> None:
         """Stop the autonomous loop and save memories/desires."""
@@ -282,4 +290,4 @@ class Bot:
         # Save self state to file
         self.self_manager.save()
 
-        print("[System] セッションの記憶・欲求・自我状態を保存したで！")
+        print("[System] Session state saved (memories, desires, self).")

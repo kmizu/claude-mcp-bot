@@ -1,2 +1,11 @@
 __pycache__/
 .env
+.venv/
+
+# User data (use *.example.json as templates)
+config.json
+desires.json
+memories.json
+self.json
+config.lambda.json
+deploy/lambda-config.json
