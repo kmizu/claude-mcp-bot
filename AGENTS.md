@@ -46,3 +46,4 @@ Never commit `.env` or runtime JSON containing personal data. Keep secrets in en
 - 2026-02-07: Switched prompt loading to file-based (`claude.system_prompt_file`) and added `CLAUDE.md` as the canonical startup persona prompt for CLI/Web/Lambda.
 - 2026-02-07: Redeployed Lambda after wiring `CLAUDE.md` into the build artifact, then verified live chat replies follow the new persona prompt.
 - 2026-02-07: Fixed web runtime reliability: auto-capture sends current camera frame when no manual capture exists, chat endpoint now returns JSON on processing failures, and frontend gracefully handles non-JSON error responses.
+- 2026-02-07: Fixed autonomous-mode time drift by adding browser timezone forwarding and timezone-aware tick generation (`Asia/Tokyo` default), so `[AUTO ...]` and system-time prompts align with local time.

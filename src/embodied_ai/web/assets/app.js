@@ -150,6 +150,10 @@ async function runAutonomousTick() {
       speak: speakToggle.checked,
       model: modelSelect.value,
     };
+    const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (browserTimezone) {
+      payload.timezone = browserTimezone;
+    }
     const voiceId = voiceIdInput.value.trim();
     if (voiceId) {
       payload.voice_id = voiceId;

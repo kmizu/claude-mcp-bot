@@ -22,5 +22,13 @@
     "memory_path": "memories.json",
     "desire_path": "desires.json",
     "self_path": "self.json"
+  },
+  "web": {
+    "host": "0.0.0.0",
+    "port": 8000,
+    "autonomous_min_interval_seconds": 3,
+    "autonomous_timezone": "Asia/Tokyo",
+    "autonomous_compaction_threshold": 80,
+    "autonomous_compaction_target_messages": 40
   }
 }

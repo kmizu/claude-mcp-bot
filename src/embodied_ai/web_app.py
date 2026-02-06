@@ -7,9 +7,10 @@ import base64
 import os
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -67,6 +68,7 @@ class AutonomousTickRequest(BaseModel):
     speak: bool = True
     voice_id: str | None = None
     model: str | None = None
+    timezone: str | None = None
     force: bool = False
 
 
@@ -80,6 +82,7 @@ class AutonomousTickResponse(BaseModel):
     audio_base64: str | None = None
     audio_mime_type: str | None = None
     tts_error: str | None = None
+    timezone: str | None = None
 
 
 @dataclass
@@ -97,6 +100,7 @@ class RuntimeState:
     autonomous_min_interval_seconds: float = 3.0
     autonomous_compaction_threshold: int = 80
     autonomous_compaction_target_messages: int = 40
+    autonomous_default_timezone: str = "Asia/Tokyo"
     autonomous_last_tick_monotonic: float = 0.0
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
@@ -141,6 +145,12 @@ class RuntimeState:
         self.autonomous_compaction_target_messages = int(
             config.get("web", {}).get("autonomous_compaction_target_messages", 40)
         )
+        self.autonomous_default_timezone = str(
+            config.get("web", {}).get(
+                "autonomous_timezone",
+                os.getenv("EMBODIED_AI_TIMEZONE", "Asia/Tokyo"),
+            )
+        )
 
     async def shutdown(self) -> None:
         """Persist state and close external connections."""
@@ -157,6 +167,7 @@ class RuntimeState:
         speak: bool = True,
         voice_id: str | None = None,
         model: str | None = None,
+        timezone_name: str | None = None,
     ) -> dict[str, Any]:
         """Inject system-time message and let the bot react autonomously."""
         bot = self.bot
@@ -171,10 +182,13 @@ class RuntimeState:
         # Keep short-term context bounded before adding a new autonomous prompt.
         self.compact_conversation_context()
 
-        now = datetime.now()
+        tz_name = timezone_name or self.autonomous_default_timezone
+        tz = self._resolve_timezone(tz_name)
+        now_utc = datetime.now(timezone.utc)
+        now_local = now_utc.astimezone(tz)
         date_text = (
-            f"{now.year}年{now.month}月{now.day}日"
-            f"{now.hour:02d}:{now.minute:02d}:{now.second:02d}"
+            f"{now_local.year}年{now_local.month}月{now_local.day}日"
+            f"{now_local.hour:02d}:{now_local.minute:02d}:{now_local.second:02d}"
         )
         system_notice = (
             f"これはシステム時間です。{date_text}になりました。"
@@ -207,17 +221,28 @@ class RuntimeState:
 
         event = {
             "id": self.autonomous_next_id,
-            "created_at": now.isoformat(),
+            "created_at": now_utc.isoformat(),
             "system_notice": system_notice,
             "reply": reply,
             "audio_base64": audio_base64,
             "audio_mime_type": audio_mime_type,
             "tts_error": tts_error,
+            "timezone": str(now_local.tzinfo),
         }
         self.autonomous_next_id += 1
         self.autonomous_events.append(event)
         self.autonomous_events = self.autonomous_events[-100:]
         return event
+
+    def _resolve_timezone(self, timezone_name: str) -> ZoneInfo:
+        """Resolve IANA timezone name with fallback to UTC."""
+        try:
+            return ZoneInfo(timezone_name)
+        except ZoneInfoNotFoundError:
+            try:
+                return ZoneInfo(self.autonomous_default_timezone)
+            except ZoneInfoNotFoundError:
+                return ZoneInfo("UTC")
 
     def compact_conversation_context(self) -> None:
         """Aggressively compact short-term memory during autonomous operation."""
@@ -333,6 +358,7 @@ def create_app() -> FastAPI:
             "autonomous_min_interval_seconds": runtime.autonomous_min_interval_seconds,
             "autonomous_compaction_threshold": runtime.autonomous_compaction_threshold,
             "autonomous_compaction_target_messages": runtime.autonomous_compaction_target_messages,
+            "autonomous_default_timezone": runtime.autonomous_default_timezone,
         }
 
     @app.get("/api/models")
@@ -430,6 +456,7 @@ def create_app() -> FastAPI:
                 speak=payload.speak,
                 voice_id=payload.voice_id,
                 model=payload.model,
+                timezone_name=payload.timezone,
             )
         except InvalidModelSelectionError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
