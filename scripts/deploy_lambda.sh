@@ -75,11 +75,101 @@ TIMEOUT="$(jq -r '.timeout // 30' "$LAMBDA_CFG")"
 EPHEMERAL_STORAGE_MB="$(jq -r '.ephemeral_storage_mb // 1024' "$LAMBDA_CFG")"
 ARCH0="$(jq -r '.architectures[0] // "x86_64"' "$LAMBDA_CFG")"
 FUNCTION_URL_AUTH_TYPE="$(jq -r '.function_url_auth_type // "NONE"' "$LAMBDA_CFG")"
+SESSION_TABLE="$(jq -r '.environment.EMBODIED_AI_SESSION_TABLE // empty' "$LAMBDA_CFG")"
+SESSION_TTL_DAYS="$(jq -r '.environment.EMBODIED_AI_SESSION_TTL_DAYS // "14"' "$LAMBDA_CFG")"
 
 ENV_JSON="$(jq -c '.environment // {}' "$LAMBDA_CFG")"
 if [[ "$ENV_JSON" == "null" ]]; then
   ENV_JSON='{}'
 fi
+
+ensure_dynamodb_table() {
+  if [[ -z "$SESSION_TABLE" ]]; then
+    return
+  fi
+
+  echo "Ensuring DynamoDB table exists: $SESSION_TABLE"
+  set +e
+  aws dynamodb describe-table \
+    --region "$REGION" \
+    --table-name "$SESSION_TABLE" >/dev/null 2>&1
+  local exists=$?
+  set -e
+
+  if [[ $exists -ne 0 ]]; then
+    echo "Creating DynamoDB table: $SESSION_TABLE"
+    aws dynamodb create-table \
+      --region "$REGION" \
+      --table-name "$SESSION_TABLE" \
+      --attribute-definitions AttributeName=session_id,AttributeType=S \
+      --key-schema AttributeName=session_id,KeyType=HASH \
+      --billing-mode PAY_PER_REQUEST \
+      >/dev/null
+
+    aws dynamodb wait table-exists \
+      --region "$REGION" \
+      --table-name "$SESSION_TABLE"
+  fi
+
+  set +e
+  aws dynamodb update-time-to-live \
+    --region "$REGION" \
+    --table-name "$SESSION_TABLE" \
+    --time-to-live-specification "Enabled=true,AttributeName=expires_at" \
+    >/dev/null 2>&1
+  set -e
+
+  echo "DynamoDB table ready (TTL=${SESSION_TTL_DAYS} days in app logic)."
+}
+
+ensure_dynamodb_role_policy() {
+  if [[ -z "$SESSION_TABLE" ]]; then
+    return
+  fi
+
+  local role_name="${ROLE_ARN##*/}"
+  local account_id
+  account_id="$(awk -F: '{print $5}' <<<"$ROLE_ARN")"
+  local table_arn="arn:aws:dynamodb:${REGION}:${account_id}:table/${SESSION_TABLE}"
+  local policy_name="embodied-ai-dynamodb-session-store"
+  local policy_file="$TMP_DIR/dynamodb-session-policy.json"
+
+  cat >"$policy_file" <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem"
+      ],
+      "Resource": [
+        "${table_arn}",
+        "${table_arn}/index/*"
+      ]
+    }
+  ]
+}
+EOF
+
+  echo "Ensuring IAM policy on role ${role_name} for DynamoDB session table..."
+  set +e
+  local output
+  output=$(aws iam put-role-policy \
+    --role-name "$role_name" \
+    --policy-name "$policy_name" \
+    --policy-document "file://$policy_file" 2>&1)
+  local rc=$?
+  set -e
+  if [[ $rc -ne 0 ]]; then
+    echo "Warning: failed to attach IAM inline policy for DynamoDB session store."
+    echo "$output"
+    return
+  fi
+}
 
 TMP_DIR="$(mktemp -d)"
 ARTIFACT_DIR="$TMP_DIR/artifact"
@@ -89,6 +179,10 @@ cleanup() {
   rm -rf "$TMP_DIR"
 }
 trap cleanup EXIT
+
+ensure_dynamodb_table
+
+ensure_dynamodb_role_policy
 
 echo "Building deployment artifact..."
 uv sync --frozen --directory "$REPO_ROOT"

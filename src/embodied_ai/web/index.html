@@ -6,12 +6,12 @@
       name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#0d1b2a" />
+    <meta name="theme-color" content="#e9f2f8" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+JP:wght@400;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/assets/styles.css" />
@@ -37,8 +37,23 @@
           <canvas id="captureCanvas" class="hidden"></canvas>
           <div class="camera-actions">
             <button id="captureBtn" class="btn" disabled>Capture</button>
+            <button id="pickImageBtn" class="btn ghost">Take Photo</button>
+            <button id="photoPickerBtn" class="btn ghost">Choose Photo</button>
             <button id="clearCaptureBtn" class="btn ghost" disabled>Clear</button>
           </div>
+          <input
+            id="imagePicker"
+            class="hidden"
+            type="file"
+            accept="image/*"
+            capture="environment"
+          />
+          <input
+            id="photoPicker"
+            class="hidden"
+            type="file"
+            accept="image/*"
+          />
           <div id="captureInfo" class="capture-info">No image attached</div>
         </section>
 

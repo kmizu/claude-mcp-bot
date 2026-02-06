@@ -1,9 +1,13 @@
 const healthBadge = document.getElementById("healthBadge");
 const cameraToggleBtn = document.getElementById("cameraToggleBtn");
 const captureBtn = document.getElementById("captureBtn");
+const pickImageBtn = document.getElementById("pickImageBtn");
+const photoPickerBtn = document.getElementById("photoPickerBtn");
 const clearCaptureBtn = document.getElementById("clearCaptureBtn");
 const cameraPreview = document.getElementById("cameraPreview");
 const captureCanvas = document.getElementById("captureCanvas");
+const imagePicker = document.getElementById("imagePicker");
+const photoPicker = document.getElementById("photoPicker");
 const captureInfo = document.getElementById("captureInfo");
 const messageList = document.getElementById("messageList");
 const chatForm = document.getElementById("chatForm");
@@ -17,6 +21,8 @@ const autonomousIntervalInput = document.getElementById("autonomousIntervalInput
 const messageTemplate = document.getElementById("messageTemplate");
 
 const SPEAK_TOGGLE_STORAGE_KEY = "embodied_ai_speak_toggle";
+const SESSION_ID_STORAGE_KEY = "embodied_ai_session_id";
+const CONVERSATION_STATE_STORAGE_PREFIX = "embodied_ai_conversation_state_v1";
 const MAX_CAPTURE_EDGE = 1280;
 const JPEG_QUALITY = 0.82;
 const audioObjectUrls = new Set();
@@ -28,6 +34,75 @@ let autonomousTimer = null;
 let autonomousInFlight = false;
 let autonomousMinIntervalSeconds = 3;
 let warnedTtsUnavailable = false;
+let hasServerConversationStore = false;
+const sessionId = getOrCreateSessionId();
+let conversationState = loadConversationState();
+
+function getOrCreateSessionId() {
+  const existing = localStorage.getItem(SESSION_ID_STORAGE_KEY);
+  if (existing && existing.trim()) {
+    return existing;
+  }
+
+  let next = "";
+  if (window.crypto && typeof window.crypto.randomUUID === "function") {
+    next = window.crypto.randomUUID();
+  } else {
+    next = `sid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  localStorage.setItem(SESSION_ID_STORAGE_KEY, next);
+  return next;
+}
+
+function getConversationStateStorageKey() {
+  return `${CONVERSATION_STATE_STORAGE_PREFIX}:${sessionId}`;
+}
+
+function loadConversationState() {
+  const raw = localStorage.getItem(getConversationStateStorageKey());
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+    return {
+      short_term: Array.isArray(parsed.short_term) ? parsed.short_term : [],
+      compressed_context: typeof parsed.compressed_context === "string"
+        ? parsed.compressed_context
+        : "",
+    };
+  } catch (error) {
+    console.warn("Failed to parse saved conversation state:", error);
+    return null;
+  }
+}
+
+function persistConversationState(nextState) {
+  if (!nextState || typeof nextState !== "object") {
+    conversationState = null;
+    localStorage.removeItem(getConversationStateStorageKey());
+    return;
+  }
+
+  const normalized = {
+    short_term: Array.isArray(nextState.short_term) ? nextState.short_term : [],
+    compressed_context: typeof nextState.compressed_context === "string"
+      ? nextState.compressed_context
+      : "",
+  };
+  conversationState = normalized;
+
+  try {
+    localStorage.setItem(getConversationStateStorageKey(), JSON.stringify(normalized));
+  } catch (error) {
+    console.warn("Failed to persist conversation state:", error);
+  }
+}
 
 function getCaptureDimensions(videoWidth, videoHeight) {
   const width = videoWidth || 1280;
@@ -68,6 +143,34 @@ function setBusy(isBusy) {
   sendBtn.textContent = isBusy ? "Sending..." : "Send";
 }
 
+function createPendingAssistantBubble() {
+  const bubble = appendMessage("assistant", "");
+  bubble.classList.add("pending");
+
+  const row = document.createElement("span");
+  row.className = "pending-row";
+
+  const spinner = document.createElement("span");
+  spinner.className = "thinking-spinner";
+  spinner.setAttribute("aria-hidden", "true");
+
+  const label = document.createElement("span");
+  label.className = "thinking-label";
+  label.textContent = "考え中...";
+
+  row.appendChild(spinner);
+  row.appendChild(label);
+  bubble.appendChild(row);
+
+  return {
+    bubble,
+    resolve(text) {
+      bubble.classList.remove("pending");
+      bubble.textContent = text;
+    },
+  };
+}
+
 function updateCaptureUI() {
   clearCaptureBtn.disabled = !capturedImageDataUrl;
 
@@ -95,6 +198,8 @@ async function checkHealth() {
     if (data.default_model) {
       defaultModel = data.default_model;
     }
+    const backend = data.conversation_store?.backend || "memory";
+    hasServerConversationStore = backend !== "memory";
     if (!data.tts_enabled && speakToggle.checked && !warnedTtsUnavailable) {
       appendMessage("assistant", "TTSが無効やで。設定を確認してな。");
       warnedTtsUnavailable = true;
@@ -149,7 +254,11 @@ async function runAutonomousTick() {
     const payload = {
       speak: speakToggle.checked,
       model: modelSelect.value,
+      session_id: sessionId,
     };
+    if (!hasServerConversationStore && conversationState) {
+      payload.conversation_state = conversationState;
+    }
     const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if (browserTimezone) {
       payload.timezone = browserTimezone;
@@ -173,6 +282,10 @@ async function runAutonomousTick() {
         appendMessage("assistant", `自律モードエラー: ${data.detail || "Request failed"}`);
       }
       return;
+    }
+
+    if (data.conversation_state) {
+      persistConversationState(data.conversation_state);
     }
 
     const timestamp = new Date(data.created_at).toLocaleTimeString();
@@ -236,17 +349,84 @@ async function startCamera() {
   if (cameraStream) {
     return;
   }
+
+  if (!window.isSecureContext) {
+    appendMessage(
+      "assistant",
+      "このページが安全な接続(HTTPS)として扱われてへんから、カメラ権限を要求できへん状態や。",
+    );
+    return;
+  }
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    appendMessage(
+      "assistant",
+      "このブラウザは `getUserMedia` 非対応みたいや。`Pick Image` で画像添付して使ってな。",
+    );
+    return;
+  }
+
+  if (navigator.permissions && navigator.permissions.query) {
+    try {
+      const status = await navigator.permissions.query({ name: "camera" });
+      if (status.state === "denied") {
+        appendMessage(
+          "assistant",
+          "カメラ権限がブラウザ設定で `deny` 固定になってる。サイト設定からカメラを許可に戻すとダイアログが出るで。",
+        );
+        return;
+      }
+    } catch {
+      // Some browsers (especially iOS) do not support querying camera permissions.
+    }
+  }
+
   try {
-    cameraStream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: { ideal: "environment" },
-      },
+    const preferred = {
+      video: { facingMode: { ideal: "environment" } },
       audio: false,
-    });
+    };
+    const basic = { video: true, audio: false };
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia(preferred);
+    } catch (firstError) {
+      const firstName = typeof firstError?.name === "string" ? firstError.name : "";
+      if (firstName === "NotFoundError" || firstName === "OverconstrainedError") {
+        cameraStream = await navigator.mediaDevices.getUserMedia(basic);
+      } else {
+        throw firstError;
+      }
+    }
+
     cameraPreview.srcObject = cameraStream;
     captureBtn.disabled = false;
     cameraToggleBtn.textContent = "Stop";
   } catch (error) {
+    const errorName = typeof error?.name === "string" ? error.name : "";
+    if (errorName === "NotAllowedError" || errorName === "PermissionDeniedError") {
+      appendMessage(
+        "assistant",
+        "カメラ権限が拒否されてるみたいや。ブラウザ/OS設定でこのサイトのカメラを許可してな。今は `Pick Image` から画像添付できるで。",
+      );
+      return;
+    }
+
+    if (errorName === "NotFoundError" || errorName === "OverconstrainedError") {
+      appendMessage(
+        "assistant",
+        "使えるカメラが見つからへんかった。別アプリで使用中やないか確認して、無理なら `Pick Image` で送ってな。",
+      );
+      return;
+    }
+
+    if (errorName === "NotReadableError") {
+      appendMessage(
+        "assistant",
+        "カメラにアクセスできへんかった。別アプリで掴まれてる可能性あるから、閉じてから再試行してみて。",
+      );
+      return;
+    }
+
     appendMessage("assistant", `カメラ起動に失敗: ${error.message}`);
   }
 }
@@ -296,6 +476,51 @@ function captureCurrentFrameDataUrl() {
   const context = captureCanvas.getContext("2d");
   context.drawImage(cameraPreview, 0, 0, width, height);
   return captureCanvas.toDataURL("image/jpeg", JPEG_QUALITY);
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("画像ファイルの読み込みに失敗した"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImageElement(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("画像のデコードに失敗した"));
+    image.src = dataUrl;
+  });
+}
+
+async function normalizeImageDataUrl(dataUrl) {
+  const image = await loadImageElement(dataUrl);
+  const { width, height } = getCaptureDimensions(
+    image.naturalWidth,
+    image.naturalHeight,
+  );
+  captureCanvas.width = width;
+  captureCanvas.height = height;
+  const context = captureCanvas.getContext("2d");
+  context.drawImage(image, 0, 0, width, height);
+  return captureCanvas.toDataURL("image/jpeg", JPEG_QUALITY);
+}
+
+async function handleImagePick(file) {
+  if (!file) {
+    return;
+  }
+
+  try {
+    const dataUrl = await readFileAsDataUrl(file);
+    capturedImageDataUrl = await normalizeImageDataUrl(dataUrl);
+    updateCaptureUI();
+  } catch (error) {
+    appendMessage("assistant", `画像の添付に失敗: ${error.message}`);
+  }
 }
 
 function dataUrlToBase64(dataUrl) {
@@ -362,13 +587,18 @@ async function sendMessage(event) {
   appendMessage("user", messageText || "(image)", imageDataUrl);
   messageInput.value = "";
   setBusy(true);
+  const pending = createPendingAssistantBubble();
 
   try {
     const payload = {
       message: messageText,
       speak: speakToggle.checked,
       model: modelSelect.value,
+      session_id: sessionId,
     };
+    if (!hasServerConversationStore && conversationState) {
+      payload.conversation_state = conversationState;
+    }
 
     const voiceId = voiceIdInput.value.trim();
     if (voiceId) {
@@ -396,7 +626,12 @@ async function sendMessage(event) {
       throw new Error(data.detail || `Request failed (${response.status})`);
     }
 
-    const bubble = appendMessage("assistant", data.reply || "(empty response)");
+    if (data.conversation_state) {
+      persistConversationState(data.conversation_state);
+    }
+
+    pending.resolve(data.reply || "(empty response)");
+    const bubble = pending.bubble;
 
     if (data.audio_base64 && data.audio_mime_type) {
       attachAudioPlayer(bubble, data.audio_base64, data.audio_mime_type);
@@ -404,7 +639,7 @@ async function sendMessage(event) {
       appendMessage("assistant", `[TTS] ${data.tts_error}`);
     }
   } catch (error) {
-    appendMessage("assistant", `エラー: ${error.message}`);
+    pending.resolve(`エラー: ${error.message}`);
   } finally {
     setBusy(false);
   }
@@ -424,6 +659,24 @@ clearCaptureBtn.addEventListener("click", () => {
   capturedImageDataUrl = null;
   updateCaptureUI();
 });
+
+pickImageBtn.addEventListener("click", () => {
+  imagePicker.click();
+});
+
+photoPickerBtn.addEventListener("click", () => {
+  photoPicker.click();
+});
+
+async function onPickerChange(event) {
+  const input = event.target;
+  const [file] = input.files || [];
+  await handleImagePick(file);
+  input.value = "";
+}
+
+imagePicker.addEventListener("change", onPickerChange);
+photoPicker.addEventListener("change", onPickerChange);
 
 chatForm.addEventListener("submit", sendMessage);
 
@@ -475,7 +728,7 @@ window.addEventListener("beforeunload", () => {
 
 const savedSpeakToggle = localStorage.getItem(SPEAK_TOGGLE_STORAGE_KEY);
 speakToggle.checked = savedSpeakToggle == null ? true : savedSpeakToggle === "1";
-appendMessage("assistant", "カメラを起動して、メッセージと一緒に画像を送ってみて。");
+appendMessage("assistant", "カメラ起動か `Take Photo` / `Choose Photo` で画像添付して送ってみて。");
 updateCaptureUI();
 checkHealth();
 loadModels();

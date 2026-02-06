@@ -16,7 +16,13 @@
     "autonomous_min_interval_seconds": 3,
     "autonomous_timezone": "Asia/Tokyo",
     "autonomous_compaction_threshold": 80,
-    "autonomous_compaction_target_messages": 40
+    "autonomous_compaction_target_messages": 40,
+    "max_conversation_state_bytes": 140000,
+    "conversation_store": {
+      "backend": "dynamodb",
+      "table_name": "embodied-ai-conversations",
+      "ttl_days": 14
+    }
   },
   "tts": {
     "enabled": true,

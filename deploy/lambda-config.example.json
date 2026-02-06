@@ -12,7 +12,10 @@
     "EMBODIED_AI_CONFIG": "/var/task/config.lambda.json",
     "ANTHROPIC_API_KEY": "replace-me",
     "ELEVENLABS_API_KEY": "replace-me",
-    "ELEVENLABS_VOICE_ID": "replace-me"
+    "ELEVENLABS_VOICE_ID": "replace-me",
+    "EMBODIED_AI_CONVERSATION_STORE": "dynamodb",
+    "EMBODIED_AI_SESSION_TABLE": "embodied-ai-conversations",
+    "EMBODIED_AI_SESSION_TTL_DAYS": "14"
   },
   "function_url_auth_type": "NONE",
   "cors": {

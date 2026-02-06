@@ -10,6 +10,7 @@ Claude API ベースのモバイル対応 PWA チャットボット。
 - Claude モデル一覧を API から取得し、UI で選択可能（Claude 系のみ許可）
 - ElevenLabs TTS で返信を音声化（任意）
 - MCP は任意（`mcpServers` が空でも利用可能）
+- Lambda + DynamoDB で会話セッションを永続化（任意）
 
 ## ローカル起動
 
@@ -56,9 +57,14 @@ cp config.lambda.example.json config.lambda.json
 - `environment.ANTHROPIC_API_KEY`
 - `environment.ELEVENLABS_API_KEY` (任意)
 - `environment.ELEVENLABS_VOICE_ID` (任意)
+- `environment.EMBODIED_AI_SESSION_TABLE` (会話永続化する場合)
 
 `config.lambda.json` の `claude.system_prompt_file` は `CLAUDE.md` を指定し、
 `CLAUDE.md` はデプロイスクリプトが同梱します（Lambda上では `/var/task/CLAUDE.md` として解決）。
+
+会話履歴を Lambda インスタンスをまたいで維持する場合は、`web.conversation_store.backend` を `dynamodb` にして、
+`EMBODIED_AI_SESSION_TABLE` を設定してください。`scripts/deploy_lambda.sh` はテーブル未作成時に自動作成し、
+TTL (`expires_at`) を有効化します。
 
 ### 2. デプロイ実行
 
