@@ -23,10 +23,10 @@
 html,
 body {
   margin: 0;
-  height: 100%;
   min-height: 100%;
-  overflow: hidden;
-  overscroll-behavior: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: none;
   font-family: "Noto Sans JP", sans-serif;
   color: var(--text);
   background:
@@ -55,20 +55,17 @@ body::before {
   max-width: var(--shell-max-width);
   width: 100%;
   margin: 0 auto;
-  min-height: 100vh;
-  height: 100vh;
-  height: 100dvh;
-  overflow: hidden;
+  min-height: 100svh;
   padding: calc(env(safe-area-inset-top, 0px) + 10px) 18px 18px;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
   gap: 16px;
 }
 
 .topbar {
   position: sticky;
-  top: 0;
-  z-index: 5;
+  top: 8px;
+  z-index: 20;
 }
 
 .topbar-inner {
@@ -120,12 +117,8 @@ body::before {
   display: grid;
   gap: 16px;
   grid-template-columns: 1fr;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
   align-content: start;
-  padding-right: 2px;
-  scrollbar-gutter: stable;
+  align-items: start;
 }
 
 .panel {
@@ -136,7 +129,7 @@ body::before {
   padding: 15px;
   backdrop-filter: blur(14px) saturate(1.2);
   position: relative;
-  overflow: hidden;
+  overflow: clip;
 }
 
 .panel::after {
@@ -203,7 +196,8 @@ body::before {
   display: flex;
   flex-direction: column;
   gap: 11px;
-  max-height: min(58dvh, 720px);
+  min-height: 140px;
+  max-height: min(44vh, 520px);
   overflow: auto;
   padding: 2px 6px 2px 2px;
 }
@@ -458,21 +452,16 @@ textarea {
 @media (min-width: 980px) {
   .layout {
     grid-template-columns: minmax(340px, 0.92fr) minmax(520px, 1.08fr);
-    align-items: start;
   }
 
   .chat-panel {
     display: flex;
     flex-direction: column;
     min-height: 0;
-    align-self: start;
   }
 
   .message-list {
-    flex: 1 1 auto;
-    min-height: 120px;
-    max-height: min(52dvh, 560px);
-    height: auto;
+    max-height: min(48vh, 580px);
   }
 }
 
@@ -502,6 +491,11 @@ textarea {
 
   .btn {
     width: 100%;
+  }
+
+  .message-list {
+    min-height: 110px;
+    max-height: 34vh;
   }
 }
 
