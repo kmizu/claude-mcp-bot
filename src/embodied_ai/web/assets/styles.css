@@ -24,6 +24,9 @@ html,
 body {
   margin: 0;
   min-height: 100%;
+  writing-mode: horizontal-tb;
+  text-orientation: mixed;
+  direction: ltr;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior-y: none;
@@ -60,6 +63,9 @@ body::before {
   display: grid;
   grid-template-rows: auto 1fr;
   gap: 16px;
+  writing-mode: horizontal-tb;
+  text-orientation: mixed;
+  direction: ltr;
 }
 
 .topbar {
@@ -78,6 +84,21 @@ body::before {
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
   backdrop-filter: blur(14px) saturate(1.2);
+}
+
+.layout,
+.panel,
+.message-list,
+.message,
+.bubble,
+.composer,
+.toggle-row,
+.model-row,
+.input-row,
+textarea {
+  writing-mode: horizontal-tb;
+  text-orientation: mixed;
+  direction: ltr;
 }
 
 .brand h1 {
