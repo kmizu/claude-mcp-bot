@@ -1,9 +1,9 @@
-const CACHE_NAME = "embodied-ai-pwa-v2";
+const CACHE_NAME = "embodied-ai-pwa-v3";
 const STATIC_ASSETS = [
   "/",
   "/manifest.webmanifest",
-  "/assets/styles.css",
-  "/assets/app.js",
+  "/assets/styles.css?v=20260207b",
+  "/assets/app.js?v=20260207b",
   "/assets/icon-192.svg",
   "/assets/icon-512.svg",
 ];

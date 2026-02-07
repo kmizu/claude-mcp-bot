@@ -59,3 +59,4 @@ Never commit `.env` or runtime JSON containing personal data. Keep secrets in en
 - 2026-02-07: Fixed autonomous-mode client robustness so non-JSON error bodies (e.g. plain `Internal Server Error`) no longer crash parsing and are surfaced as readable error text.
 - 2026-02-07: Added concise-reply controls (prompt guidance + server-side response length suppression) to reduce long monologues during chat and autonomous replies.
 - 2026-02-07: Fixed top bar behavior so `Embodied AI / Mobile Camera Chat` stays pinned at the top while scrolling, and removed the optional voice ID override field from the web UI.
+- 2026-02-07: Added PWA asset cache busting (`sw.js` cache v3 + versioned CSS/JS URLs) to force clients onto the latest fixed-header layout.
