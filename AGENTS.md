@@ -63,3 +63,4 @@ Never commit `.env` or runtime JSON containing personal data. Keep secrets in en
 - 2026-02-07: Adjusted top bar to sticky-in-flow layout (instead of fixed overlay) for desktop usability, then bumped PWA cache version again to force refresh.
 - 2026-02-07: Reverted header to explicit fixed-top layout with reserved content offset for PC reliability, plus another cache version bump to ensure immediate rollout.
 - 2026-02-07: Rebuilt the page layout as a two-row grid (`header` + scrollable `main`) to stabilize top-bar behavior across desktop browsers instead of relying on sticky/fixed patching.
+- 2026-02-07: Hardened desktop header pinning by locking root/app overflow and forcing the only scroll path to `.layout`, then rolled out another PWA cache bump (`v8`, `20260207g`) and redeployed Lambda.

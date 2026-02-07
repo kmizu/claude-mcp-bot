@@ -26,6 +26,7 @@ body {
   height: 100%;
   min-height: 100%;
   overflow: hidden;
+  overscroll-behavior: none;
   font-family: "Noto Sans JP", sans-serif;
   color: var(--text);
   background:
@@ -54,7 +55,10 @@ body::before {
   max-width: var(--shell-max-width);
   width: 100%;
   margin: 0 auto;
+  min-height: 100vh;
+  height: 100vh;
   height: 100dvh;
+  overflow: hidden;
   padding: calc(env(safe-area-inset-top, 0px) + 10px) 18px 18px;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -62,7 +66,8 @@ body::before {
 }
 
 .topbar {
-  position: relative;
+  position: sticky;
+  top: 0;
   z-index: 5;
 }
 
@@ -116,7 +121,8 @@ body::before {
   gap: 16px;
   grid-template-columns: 1fr;
   min-height: 0;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   align-content: start;
   padding-right: 2px;
   scrollbar-gutter: stable;
