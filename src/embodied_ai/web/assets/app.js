@@ -251,6 +251,46 @@ function scheduleNextAutonomousTick() {
   autonomousTimer = setTimeout(runAutonomousTick, getAutonomousIntervalMs());
 }
 
+async function requestAutonomousTick({
+  imageDataUrl = null,
+  force = false,
+} = {}) {
+  const payload = {
+    speak: speakToggle.checked,
+    model: modelSelect.value,
+    session_id: sessionId,
+    force,
+  };
+  if (!hasServerConversationStore && conversationState) {
+    payload.conversation_state = conversationState;
+  }
+  const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (browserTimezone) {
+    payload.timezone = browserTimezone;
+  }
+  const voiceId = voiceIdInput.value.trim();
+  if (voiceId) {
+    payload.voice_id = voiceId;
+  }
+  if (imageDataUrl) {
+    payload.image_base64 = dataUrlToBase64(imageDataUrl);
+    payload.image_media_type = "image/jpeg";
+  }
+
+  const response = await fetch("/api/autonomous/tick", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json();
+  return {
+    response,
+    data,
+  };
+}
+
 async function runAutonomousTick() {
   if (!autonomousToggle.checked) {
     return;
@@ -262,45 +302,7 @@ async function runAutonomousTick() {
 
   autonomousInFlight = true;
   try {
-    let autonomousImageDataUrl = null;
-    if (cameraStream) {
-      try {
-        autonomousImageDataUrl = captureCurrentFrameDataUrl();
-      } catch (error) {
-        console.warn("Autonomous frame capture failed:", error);
-      }
-    }
-
-    const payload = {
-      speak: speakToggle.checked,
-      model: modelSelect.value,
-      session_id: sessionId,
-    };
-    if (!hasServerConversationStore && conversationState) {
-      payload.conversation_state = conversationState;
-    }
-    const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (browserTimezone) {
-      payload.timezone = browserTimezone;
-    }
-    const voiceId = voiceIdInput.value.trim();
-    if (voiceId) {
-      payload.voice_id = voiceId;
-    }
-    if (autonomousImageDataUrl) {
-      payload.image_base64 = dataUrlToBase64(autonomousImageDataUrl);
-      payload.image_media_type = "image/jpeg";
-    }
-
-    const response = await fetch("/api/autonomous/tick", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await response.json();
+    let { response, data } = await requestAutonomousTick();
     if (!response.ok) {
       if (response.status !== 429) {
         appendMessage("assistant", `自律モードエラー: ${data.detail || "Request failed"}`);
@@ -310,6 +312,45 @@ async function runAutonomousTick() {
 
     if (data.conversation_state) {
       persistConversationState(data.conversation_state);
+    }
+
+    if (data.requires_camera_capture) {
+      if (!cameraStream) {
+        appendMessage(
+          "assistant",
+          `[AUTO] ${data.camera_capture_reason || "カメラ確認したい"} けどカメラがオフやから見られへんかった。`,
+        );
+        return;
+      }
+
+      let captured = null;
+      try {
+        captured = captureCurrentFrameDataUrl();
+      } catch (error) {
+        console.warn("Autonomous camera capture failed:", error);
+      }
+      if (!captured) {
+        appendMessage("assistant", "[AUTO] カメラ確認を試したけど、画像取得に失敗した。");
+        return;
+      }
+
+      const retry = await requestAutonomousTick({
+        imageDataUrl: captured,
+        force: true,
+      });
+      response = retry.response;
+      data = retry.data;
+      if (!response.ok) {
+        appendMessage("assistant", `自律モード再試行エラー: ${data.detail || "Request failed"}`);
+        return;
+      }
+      if (data.conversation_state) {
+        persistConversationState(data.conversation_state);
+      }
+      if (data.requires_camera_capture) {
+        appendMessage("assistant", "[AUTO] カメラ確認を繰り返し要求されたため、今回のtickは中断した。");
+        return;
+      }
     }
 
     const timestamp = formatJapaneseDateTime(new Date(data.created_at));

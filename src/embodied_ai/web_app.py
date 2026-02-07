@@ -99,6 +99,8 @@ class AutonomousTickResponse(BaseModel):
     audio_mime_type: str | None = None
     tts_error: str | None = None
     timezone: str | None = None
+    requires_camera_capture: bool = False
+    camera_capture_reason: str | None = None
     conversation_state: "ConversationStatePayload | None" = None
 
 
@@ -317,11 +319,6 @@ class RuntimeState:
             "今この瞬間に合う行動を自律的に選んでください。"
             "必要ならカメラ系ツールや音声系ツールを使ってください。"
         )
-        autonomous_content = _build_autonomous_tick_content(
-            system_notice=system_notice,
-            image_base64=image_base64,
-            image_media_type=image_media_type,
-        )
 
         resolved_session = self._normalize_session_id(session_id)
         async with self.lock:
@@ -329,8 +326,30 @@ class RuntimeState:
                 session_id=resolved_session,
                 payload_state=conversation_state,
             )
+            if not image_base64:
+                reason = self._plan_camera_capture_request(
+                    system_notice=system_notice,
+                    model=model,
+                )
+                if reason:
+                    self._snapshot_conversation_state(resolved_session)
+                    state_payload = self._get_session_state_payload(resolved_session)
+                    await self._persist_session_state(resolved_session)
+                    return self._build_camera_capture_event(
+                        now_utc=now_utc,
+                        now_local=now_local,
+                        system_notice=system_notice,
+                        reason=reason,
+                        conversation_state=state_payload,
+                    )
+
             # Keep short-term context bounded before adding a new autonomous prompt.
             self.compact_conversation_context()
+            autonomous_content = _build_autonomous_tick_content(
+                system_notice=system_notice,
+                image_base64=image_base64,
+                image_media_type=image_media_type,
+            )
             reply = await bot.process_user_content(
                 autonomous_content,
                 model=model,
@@ -365,6 +384,8 @@ class RuntimeState:
             "audio_mime_type": audio_mime_type,
             "tts_error": tts_error,
             "timezone": str(now_local.tzinfo),
+            "requires_camera_capture": False,
+            "camera_capture_reason": None,
             "conversation_state": (
                 state_payload.model_dump() if state_payload else None
             ),
@@ -373,6 +394,103 @@ class RuntimeState:
         self.autonomous_events.append(event)
         self.autonomous_events = self.autonomous_events[-100:]
         return event
+
+    def _build_camera_capture_event(
+        self,
+        now_utc: datetime,
+        now_local: datetime,
+        system_notice: str,
+        reason: str,
+        conversation_state: ConversationStatePayload | None,
+    ) -> dict[str, Any]:
+        """Build response/event that asks client to capture and resend image."""
+        event = {
+            "id": self.autonomous_next_id,
+            "created_at": now_utc.isoformat(),
+            "system_notice": system_notice,
+            "reply": "",
+            "audio_base64": None,
+            "audio_mime_type": None,
+            "tts_error": None,
+            "timezone": str(now_local.tzinfo),
+            "requires_camera_capture": True,
+            "camera_capture_reason": reason,
+            "conversation_state": (
+                conversation_state.model_dump() if conversation_state else None
+            ),
+        }
+        self.autonomous_next_id += 1
+        self.autonomous_events.append(event)
+        self.autonomous_events = self.autonomous_events[-100:]
+        return event
+
+    def _plan_camera_capture_request(
+        self,
+        system_notice: str,
+        model: str | None = None,
+    ) -> str | None:
+        """Ask model whether client camera capture is needed before answering."""
+        bot = self.bot
+        claude = self.claude_client
+        if not bot or not claude:
+            return None
+
+        context_messages = bot.memory.get_context_messages()
+        context_messages = bot._clean_tool_messages(context_messages)
+        planner_prompt = (
+            "[Autonomous Camera Planner]\n"
+            f"{system_notice}\n\n"
+            "最新の視覚情報（スマホ/PCカメラ画像）が必要なら"
+            " `request_camera_capture` ツールを呼んでください。"
+            "不要なら `NO_CAMERA` とだけ返してください。"
+        )
+        messages = context_messages + [{
+            "role": "user",
+            "content": planner_prompt,
+        }]
+        tool_spec = [{
+            "name": "request_camera_capture",
+            "description": (
+                "Request the client to capture and upload the current camera image "
+                "before autonomous response."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "description": "Short reason in Japanese.",
+                    },
+                },
+                "required": ["reason"],
+            },
+        }]
+
+        try:
+            response = claude.chat(
+                messages=messages,
+                tools=tool_spec,
+                model=model,
+                max_tokens=256,
+            )
+        except Exception as exc:
+            print(f"[Web] Autonomous camera planner failed: {exc}")
+            return None
+
+        for block in response.content:
+            if block.type == "tool_use" and block.name == "request_camera_capture":
+                reason = ""
+                if isinstance(block.input, dict):
+                    reason = str(block.input.get("reason", "")).strip()
+                return reason or "最新の視覚情報で状況確認したい。"
+
+            if block.type == "text":
+                text = block.text.strip()
+                if "[REQUEST_CAMERA_CAPTURE]" in text:
+                    normalized = text.replace("[REQUEST_CAMERA_CAPTURE]", "").strip()
+                    return normalized or "最新の視覚情報で状況確認したい。"
+
+        return None
 
     def _normalize_session_id(self, session_id: str | None) -> str:
         """Normalize inbound session IDs and keep key size bounded."""

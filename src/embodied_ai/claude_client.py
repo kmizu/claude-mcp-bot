@@ -28,6 +28,7 @@ class ClaudeClient:
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         model: str | None = None,
+        max_tokens: int = 4096,
     ) -> Any:
         """Send a chat request to Claude API.
 
@@ -47,7 +48,7 @@ class ClaudeClient:
 
         kwargs = {
             "model": selected_model,
-            "max_tokens": 4096,
+            "max_tokens": max_tokens,
             "system": self.system_prompt,
             "messages": messages,
         }
