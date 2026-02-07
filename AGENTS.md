@@ -61,3 +61,4 @@ Never commit `.env` or runtime JSON containing personal data. Keep secrets in en
 - 2026-02-07: Fixed top bar behavior so `Embodied AI / Mobile Camera Chat` stays pinned at the top while scrolling, and removed the optional voice ID override field from the web UI.
 - 2026-02-07: Added PWA asset cache busting (`sw.js` cache v3 + versioned CSS/JS URLs) to force clients onto the latest fixed-header layout.
 - 2026-02-07: Adjusted top bar to sticky-in-flow layout (instead of fixed overlay) for desktop usability, then bumped PWA cache version again to force refresh.
+- 2026-02-07: Reverted header to explicit fixed-top layout with reserved content offset for PC reliability, plus another cache version bump to ensure immediate rollout.
