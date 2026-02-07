@@ -14,7 +14,6 @@ const chatForm = document.getElementById("chatForm");
 const messageInput = document.getElementById("messageInput");
 const sendBtn = document.getElementById("sendBtn");
 const speakToggle = document.getElementById("speakToggle");
-const voiceIdInput = document.getElementById("voiceIdInput");
 const modelSelect = document.getElementById("modelSelect");
 const autonomousToggle = document.getElementById("autonomousToggle");
 const autonomousIntervalInput = document.getElementById("autonomousIntervalInput");
@@ -267,10 +266,6 @@ async function requestAutonomousTick({
   const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   if (browserTimezone) {
     payload.timezone = browserTimezone;
-  }
-  const voiceId = voiceIdInput.value.trim();
-  if (voiceId) {
-    payload.voice_id = voiceId;
   }
   if (imageDataUrl) {
     payload.image_base64 = dataUrlToBase64(imageDataUrl);
@@ -668,11 +663,6 @@ async function sendMessage(event) {
     };
     if (!hasServerConversationStore && conversationState) {
       payload.conversation_state = conversationState;
-    }
-
-    const voiceId = voiceIdInput.value.trim();
-    if (voiceId) {
-      payload.voice_id = voiceId;
     }
 
     if (imageDataUrl) {

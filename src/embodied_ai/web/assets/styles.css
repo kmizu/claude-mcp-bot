@@ -1,4 +1,6 @@
 :root {
+  --shell-max-width: 1180px;
+  --topbar-height: 78px;
   --bg: #e9f2f8;
   --bg-alt: #dbe8f3;
   --surface: rgba(255, 255, 255, 0.78);
@@ -48,9 +50,10 @@ body::before {
 .app-shell {
   position: relative;
   z-index: 1;
-  max-width: 1180px;
+  max-width: var(--shell-max-width);
   margin: 0 auto;
   padding: 18px;
+  padding-top: calc(env(safe-area-inset-top, 0px) + var(--topbar-height) + 22px);
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
@@ -58,9 +61,13 @@ body::before {
 }
 
 .topbar {
-  position: sticky;
-  top: 12px;
-  z-index: 5;
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(calc(100% - 36px), var(--shell-max-width));
+  z-index: 40;
+  min-height: var(--topbar-height);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -303,10 +310,6 @@ body::before {
   accent-color: var(--accent);
 }
 
-.voice-row {
-  margin-top: 8px;
-}
-
 .model-row {
   margin-top: 10px;
   display: grid;
@@ -319,7 +322,6 @@ body::before {
 }
 
 .model-row select,
-.voice-row input,
 textarea,
 .autonomous-row input[type="number"] {
   width: 100%;
@@ -338,7 +340,6 @@ textarea,
 }
 
 .model-row select:focus,
-.voice-row input:focus,
 textarea:focus,
 .autonomous-row input[type="number"]:focus {
   outline: none;
@@ -463,13 +464,19 @@ textarea {
 }
 
 @media (max-width: 640px) {
+  :root {
+    --topbar-height: 70px;
+  }
+
   .app-shell {
     padding: 12px;
+    padding-top: calc(env(safe-area-inset-top, 0px) + var(--topbar-height) + 18px);
     gap: 12px;
   }
 
   .topbar {
-    top: 8px;
+    top: calc(env(safe-area-inset-top, 0px) + 6px);
+    width: calc(100% - 24px);
     border-radius: 16px;
     padding: 12px 14px;
   }
