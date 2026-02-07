@@ -64,3 +64,4 @@ Never commit `.env` or runtime JSON containing personal data. Keep secrets in en
 - 2026-02-07: Reverted header to explicit fixed-top layout with reserved content offset for PC reliability, plus another cache version bump to ensure immediate rollout.
 - 2026-02-07: Rebuilt the page layout as a two-row grid (`header` + scrollable `main`) to stabilize top-bar behavior across desktop browsers instead of relying on sticky/fixed patching.
 - 2026-02-07: Hardened desktop header pinning by locking root/app overflow and forcing the only scroll path to `.layout`, then rolled out another PWA cache bump (`v8`, `20260207g`) and redeployed Lambda.
+- 2026-02-07: Fixed desktop regression where the chat composer disappeared by removing fixed `min-height` pressure from `message-list` and converting `chat-panel` to a two-row grid (`messages + composer`), then redeployed with cache bump (`v9`, `20260207h`).
