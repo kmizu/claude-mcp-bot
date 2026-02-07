@@ -63,10 +63,16 @@ body::before {
 .topbar {
   position: fixed;
   top: calc(env(safe-area-inset-top, 0px) + 10px);
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(calc(100% - 36px), var(--shell-max-width));
+  left: 0;
+  right: 0;
   z-index: 40;
+  padding: 0 18px;
+}
+
+.topbar-inner {
+  width: 100%;
+  max-width: var(--shell-max-width);
+  margin: 0 auto;
   min-height: var(--topbar-height);
   display: flex;
   align-items: center;
@@ -476,7 +482,10 @@ textarea {
 
   .topbar {
     top: calc(env(safe-area-inset-top, 0px) + 6px);
-    width: calc(100% - 24px);
+    padding: 0 12px;
+  }
+
+  .topbar-inner {
     border-radius: 16px;
     padding: 12px 14px;
   }
