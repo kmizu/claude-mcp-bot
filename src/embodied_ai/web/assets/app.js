@@ -284,7 +284,10 @@ async function requestAutonomousTick({
     },
     body: JSON.stringify(payload),
   });
-  const data = await response.json();
+  const contentType = response.headers.get("content-type") || "";
+  const data = contentType.includes("application/json")
+    ? await response.json()
+    : { detail: await response.text() };
   return {
     response,
     data,
