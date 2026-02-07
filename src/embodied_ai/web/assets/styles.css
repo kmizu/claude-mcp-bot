@@ -1,6 +1,5 @@
 :root {
   --shell-max-width: 1180px;
-  --topbar-offset: 108px;
   --bg: #e9f2f8;
   --bg-alt: #dbe8f3;
   --surface: rgba(255, 255, 255, 0.78);
@@ -24,7 +23,9 @@
 html,
 body {
   margin: 0;
+  height: 100%;
   min-height: 100%;
+  overflow: hidden;
   font-family: "Noto Sans JP", sans-serif;
   color: var(--text);
   background:
@@ -51,30 +52,21 @@ body::before {
   position: relative;
   z-index: 1;
   max-width: var(--shell-max-width);
+  width: 100%;
   margin: 0 auto;
-  padding: 18px;
-  padding-top: calc(env(safe-area-inset-top, 0px) + var(--topbar-offset));
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
+  height: 100dvh;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 18px 18px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 16px;
 }
 
 .topbar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 40;
-  padding: calc(env(safe-area-inset-top, 0px) + 10px) 18px 12px;
-  background: rgba(233, 242, 248, 0.92);
-  backdrop-filter: blur(12px) saturate(1.05);
+  position: relative;
+  z-index: 5;
 }
 
 .topbar-inner {
-  width: 100%;
-  max-width: var(--shell-max-width);
-  margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -123,7 +115,11 @@ body::before {
   display: grid;
   gap: 16px;
   grid-template-columns: 1fr;
-  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  align-content: start;
+  padding-right: 2px;
+  scrollbar-gutter: stable;
 }
 
 .panel {
@@ -471,18 +467,9 @@ textarea {
 }
 
 @media (max-width: 640px) {
-  :root {
-    --topbar-offset: 96px;
-  }
-
   .app-shell {
-    padding: 12px;
-    padding-top: calc(env(safe-area-inset-top, 0px) + var(--topbar-offset));
+    padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 12px;
     gap: 12px;
-  }
-
-  .topbar {
-    padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 10px;
   }
 
   .topbar-inner {
