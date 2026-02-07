@@ -7,6 +7,7 @@ import base64
 import copy
 import json
 import os
+import re
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -213,6 +214,8 @@ class RuntimeState:
     autonomous_compaction_threshold: int = 80
     autonomous_compaction_target_messages: int = 40
     autonomous_default_timezone: str = "Asia/Tokyo"
+    reply_max_chars: int = 260
+    reply_max_sentences: int = 3
     default_session_id: str = "default"
     max_conversation_states: int = 64
     max_conversation_state_bytes: int = 140000
@@ -267,6 +270,12 @@ class RuntimeState:
                 "autonomous_timezone",
                 os.getenv("EMBODIED_AI_TIMEZONE", "Asia/Tokyo"),
             )
+        )
+        self.reply_max_chars = int(
+            config.get("web", {}).get("reply_max_chars", 260)
+        )
+        self.reply_max_sentences = int(
+            config.get("web", {}).get("reply_max_sentences", 3)
         )
         self.max_conversation_state_bytes = int(
             config.get("web", {}).get(
@@ -354,6 +363,7 @@ class RuntimeState:
                 autonomous_content,
                 model=model,
             )
+            reply = self._suppress_long_reply(reply)
             self._snapshot_conversation_state(resolved_session)
             state_payload = self._get_session_state_payload(resolved_session)
             await self._persist_session_state(resolved_session)
@@ -491,6 +501,30 @@ class RuntimeState:
                     return normalized or "最新の視覚情報で状況確認したい。"
 
         return None
+
+    def _suppress_long_reply(self, reply: str) -> str:
+        """Keep casual replies concise to avoid overly long monologues."""
+        if not reply.strip():
+            return reply
+
+        # Avoid clipping structured/code responses.
+        if "```" in reply:
+            return reply
+
+        max_chars = max(self.reply_max_chars, 80)
+        max_sentences = max(self.reply_max_sentences, 1)
+
+        normalized = re.sub(r"\s+", " ", reply).strip()
+        sentences = [
+            s.strip()
+            for s in re.split(r"(?<=[。！？!?])\s*", normalized)
+            if s.strip()
+        ]
+        candidate = "".join(sentences[:max_sentences]) if sentences else normalized
+
+        if len(candidate) > max_chars:
+            candidate = f"{candidate[:max_chars].rstrip()}…"
+        return candidate
 
     def _normalize_session_id(self, session_id: str | None) -> str:
         """Normalize inbound session IDs and keep key size bounded."""
@@ -1117,6 +1151,7 @@ def create_app() -> FastAPI:
                     payload_state=payload.conversation_state,
                 )
                 reply = await bot.process_user_content(user_content, model=payload.model)
+                reply = runtime._suppress_long_reply(reply)
                 runtime._snapshot_conversation_state(session_id)
                 state_payload = runtime._get_session_state_payload(session_id)
                 await runtime._persist_session_state(session_id)

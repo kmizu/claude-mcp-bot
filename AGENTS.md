@@ -57,3 +57,4 @@ Never commit `.env` or runtime JSON containing personal data. Keep secrets in en
 - 2026-02-07: Enabled autonomous vision loop by attaching live camera frames to autonomous ticks, so the model can proactively comment on what it currently sees.
 - 2026-02-07: Reworked autonomous camera behavior to two-step decision flow: model first requests camera capture when needed, then client captures and resends image in a follow-up tick.
 - 2026-02-07: Fixed autonomous-mode client robustness so non-JSON error bodies (e.g. plain `Internal Server Error`) no longer crash parsing and are surfaced as readable error text.
+- 2026-02-07: Added concise-reply controls (prompt guidance + server-side response length suppression) to reduce long monologues during chat and autonomous replies.

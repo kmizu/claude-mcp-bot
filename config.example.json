@@ -24,6 +24,8 @@
     "port": 8000,
     "autonomous_min_interval_seconds": 3,
     "autonomous_timezone": "Asia/Tokyo",
+    "reply_max_chars": 260,
+    "reply_max_sentences": 3,
     "autonomous_compaction_threshold": 80,
     "autonomous_compaction_target_messages": 40,
     "max_conversation_state_bytes": 140000,
