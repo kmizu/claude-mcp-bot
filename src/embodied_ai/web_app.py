@@ -81,6 +81,8 @@ class AutonomousTickRequest(BaseModel):
     voice_id: str | None = None
     model: str | None = None
     timezone: str | None = None
+    image_base64: str | None = None
+    image_media_type: str = "image/jpeg"
     session_id: str | None = None
     conversation_state: "ConversationStatePayload | None" = None
     force: bool = False
@@ -290,6 +292,8 @@ class RuntimeState:
         voice_id: str | None = None,
         model: str | None = None,
         timezone_name: str | None = None,
+        image_base64: str | None = None,
+        image_media_type: str = "image/jpeg",
         session_id: str | None = None,
         conversation_state: ConversationStatePayload | None = None,
     ) -> dict[str, Any]:
@@ -313,6 +317,11 @@ class RuntimeState:
             "今この瞬間に合う行動を自律的に選んでください。"
             "必要ならカメラ系ツールや音声系ツールを使ってください。"
         )
+        autonomous_content = _build_autonomous_tick_content(
+            system_notice=system_notice,
+            image_base64=image_base64,
+            image_media_type=image_media_type,
+        )
 
         resolved_session = self._normalize_session_id(session_id)
         async with self.lock:
@@ -323,7 +332,7 @@ class RuntimeState:
             # Keep short-term context bounded before adding a new autonomous prompt.
             self.compact_conversation_context()
             reply = await bot.process_user_content(
-                f"[System Tick] {system_notice}",
+                autonomous_content,
                 model=model,
             )
             self._snapshot_conversation_state(resolved_session)
@@ -837,6 +846,33 @@ def _build_user_content(payload: ChatRequest) -> str | list[dict[str, Any]]:
     return blocks
 
 
+def _build_autonomous_tick_content(
+    system_notice: str,
+    image_base64: str | None = None,
+    image_media_type: str = "image/jpeg",
+) -> str | list[dict[str, Any]]:
+    """Build autonomous tick content; include camera frame when provided."""
+    text = (
+        f"[System Tick] {system_notice}"
+        "\n\n必要に応じて、添付画像（ある場合）の状況も見て判断してください。"
+    )
+    if not image_base64:
+        return text
+
+    image_data = _normalize_image_data(image_base64)
+    return [
+        {"type": "text", "text": text},
+        {
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": image_media_type,
+                "data": image_data,
+            },
+        },
+    ]
+
+
 def _encode_audio(audio_bytes: bytes) -> str:
     """Base64-encode binary audio for JSON transport."""
     return base64.b64encode(audio_bytes).decode("ascii")
@@ -1031,11 +1067,15 @@ def create_app() -> FastAPI:
                 voice_id=payload.voice_id,
                 model=payload.model,
                 timezone_name=payload.timezone,
+                image_base64=payload.image_base64,
+                image_media_type=payload.image_media_type,
                 session_id=payload.session_id,
                 conversation_state=payload.conversation_state,
             )
         except InvalidModelSelectionError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid image data: {exc}") from exc
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"Autonomous tick failed: {exc}") from exc
 

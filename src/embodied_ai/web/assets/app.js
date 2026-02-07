@@ -262,6 +262,15 @@ async function runAutonomousTick() {
 
   autonomousInFlight = true;
   try {
+    let autonomousImageDataUrl = null;
+    if (cameraStream) {
+      try {
+        autonomousImageDataUrl = captureCurrentFrameDataUrl();
+      } catch (error) {
+        console.warn("Autonomous frame capture failed:", error);
+      }
+    }
+
     const payload = {
       speak: speakToggle.checked,
       model: modelSelect.value,
@@ -277,6 +286,10 @@ async function runAutonomousTick() {
     const voiceId = voiceIdInput.value.trim();
     if (voiceId) {
       payload.voice_id = voiceId;
+    }
+    if (autonomousImageDataUrl) {
+      payload.image_base64 = dataUrlToBase64(autonomousImageDataUrl);
+      payload.image_media_type = "image/jpeg";
     }
 
     const response = await fetch("/api/autonomous/tick", {
